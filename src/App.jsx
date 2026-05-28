@@ -4,12 +4,8 @@ import Login from '@/pages/auth/Login'
 import Register from '@/pages/auth/Register'
 import Dashboard from '@/pages/Dashboard'
 import AccountsIndex from '@/pages/accounts/Index'
-import AccountCreate from '@/pages/accounts/Create'
-import AccountEdit from '@/pages/accounts/Edit'
 import AccountsArchived from '@/pages/accounts/Archived'
 import SubscriptionsIndex from '@/pages/subscriptions/Index'
-import SubscriptionCreate from '@/pages/subscriptions/Create'
-import SubscriptionEdit from '@/pages/subscriptions/Edit'
 import SubscriptionsArchived from '@/pages/subscriptions/Archived'
 import Notifications from '@/pages/Notifications'
 import AuthLayout from '@/layouts/AuthLayout'
@@ -46,12 +42,8 @@ export default function App() {
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/accounts" element={<AccountsIndex />} />
-        <Route path="/accounts/new" element={<AccountCreate />} />
-        <Route path="/accounts/:id/edit" element={<AccountEdit />} />
         <Route path="/accounts/archived" element={<AccountsArchived />} />
         <Route path="/subscriptions" element={<SubscriptionsIndex />} />
-        <Route path="/subscriptions/new" element={<SubscriptionCreate />} />
-        <Route path="/subscriptions/:id/edit" element={<SubscriptionEdit />} />
         <Route path="/subscriptions/archived" element={<SubscriptionsArchived />} />
         <Route path="/notifications" element={<Notifications />} />
       </Route>

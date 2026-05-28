@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import StatCard from '@/components/StatCard'
 import CountdownTimer from '@/components/CountdownTimer'
+import AccountModal from '@/components/AccountModal'
+import SubscriptionModal from '@/components/SubscriptionModal'
 import { Layers, Clock, Receipt, Calendar } from 'lucide-react'
 
 function formatDate(d) {
@@ -19,30 +21,28 @@ function daysUntil(dateStr) {
 export default function Dashboard() {
   const { user } = useAuth()
   const [accounts, setAccounts] = useState([])
+  const [totalAccounts, setTotalAccounts] = useState(0)
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef(null)
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false)
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
-      const [{ data: acc }, { data: subs }] = await Promise.all([
+      const [{ data: acc }, { data: subs }, { count: accCount }] = await Promise.all([
         supabase.from('accounts').select('*, token_timers(*)').is('deleted_at', null).eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
-        supabase.from('subscriptions').select('*').is('deleted_at', null).eq('user_id', user.id).order('next_billing_date', { ascending: true }).limit(5)
+        supabase.from('subscriptions').select('*').is('deleted_at', null).eq('user_id', user.id).order('next_billing_date', { ascending: true }).limit(5),
+        supabase.from('accounts').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('user_id', user.id)
       ])
       setAccounts(acc || [])
       setSubscriptions(subs || [])
+      setTotalAccounts(accCount || 0)
       setLoading(false)
     }
     load()
   }, [user])
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handle(e) { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false) }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [])
+
 
   const expiringIn24h = accounts.filter(a => {
     if (!a.token_timers?.[0]?.next_due_at) return false
@@ -67,35 +67,25 @@ export default function Dashboard() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Welcome back, {user?.email}</p>
         </div>
 
-        {/* Unified "+ New" dropdown */}
-        <div className="relative" ref={dropdownRef}>
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setDropdownOpen(o => !o)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors"
+            onClick={() => setIsAccountModalOpen(true)}
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors"
           >
-            <span>+ New</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={`w-3.5 h-3.5 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}>
-              <path fillRule="evenodd" d="M4.22 6.22a.75.75 0 011.06 0L8 8.94l2.72-2.72a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L4.22 7.28a.75.75 0 010-1.06z" clipRule="evenodd"/>
-            </svg>
+            + Add Account
           </button>
-          {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-20">
-              <Link to="/accounts/new" onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                <span className="text-indigo-500">◎</span> Account
-              </Link>
-              <Link to="/subscriptions/new" onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-t border-slate-100 dark:border-slate-800">
-                <span className="text-emerald-500">◈</span> Subscription
-              </Link>
-            </div>
-          )}
+          <button
+            onClick={() => setIsSubModalOpen(true)}
+            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors"
+          >
+            + Add Subscription
+          </button>
         </div>
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        <StatCard title="Total Accounts" value={accounts.length} icon={<Layers className="h-5 w-5 text-muted-foreground stroke-[1.75]" />} />
+        <StatCard title="Total Accounts" value={totalAccounts} icon={<Layers className="h-5 w-5 text-muted-foreground stroke-[1.75]" />} />
         <StatCard title="Expiring in 24h" value={expiringIn24h} icon={<Clock className="h-5 w-5 text-muted-foreground stroke-[1.75]" />} pulse={expiringIn24h > 0} />
         <StatCard title="Bills This Month" value={dueThisMonth} icon={<Receipt className="h-5 w-5 text-muted-foreground stroke-[1.75]" />} />
         <StatCard
@@ -132,7 +122,13 @@ export default function Dashboard() {
                       {acc.type}
                     </p>
                   </div>
-                  <CountdownTimer nextDueAt={acc.token_timers?.[0]?.next_due_at} />
+                  <CountdownTimer 
+                    nextDueAt={acc.token_timers?.[0]?.next_due_at} 
+                    accountId={acc.id}
+                    platform={acc.platform}
+                    email={acc.email}
+                    userId={user.id}
+                  />
                 </li>
               ))}
             </ul>
@@ -178,6 +174,19 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      <AccountModal 
+        isOpen={isAccountModalOpen} 
+        onClose={() => setIsAccountModalOpen(false)} 
+        account={null} 
+        onSave={() => load()} 
+      />
+      <SubscriptionModal 
+        isOpen={isSubModalOpen} 
+        onClose={() => setIsSubModalOpen(false)} 
+        subscription={null} 
+        onSave={() => load()} 
+      />
     </div>
   )
 }

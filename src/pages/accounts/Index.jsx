@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import CountdownTimer from '@/components/CountdownTimer'
-import { Search } from 'lucide-react'
+import AccountModal from '@/components/AccountModal'
+import { Search, Pencil, Archive } from 'lucide-react'
 
 const thCls = "px-4 py-3 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase text-left bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800"
 const tdCls = "px-4 py-3.5 text-sm text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60 align-middle"
@@ -14,6 +15,8 @@ export default function AccountsIndex() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('All')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingAccount, setEditingAccount] = useState(null)
 
   async function load() {
     const { data } = await supabase
@@ -32,10 +35,17 @@ export default function AccountsIndex() {
     load()
   }
 
-  async function handleMarkRefreshed(timerId, intervalHours) {
+  async function handleMarkRefreshed(timerId, intervalHours, platform, email) {
     const now = new Date()
     const nextDue = new Date(now.getTime() + intervalHours * 3600000)
     await supabase.from('token_timers').update({ last_refreshed_at: now.toISOString(), next_due_at: nextDue.toISOString() }).eq('id', timerId)
+    
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      message: `You refreshed the token for ${platform} account ${email}`,
+      is_read: false
+    })
+    
     load()
   }
 
@@ -60,10 +70,10 @@ export default function AccountsIndex() {
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors">
             Archived
           </Link>
-          <Link to="/accounts/new"
+          <button onClick={() => { setEditingAccount(null); setIsModalOpen(true); }}
             className="px-4 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors">
             + Add Account
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -119,25 +129,33 @@ export default function AccountsIndex() {
                       </span>
                     </td>
                     <td className={`${tdCls} text-slate-500 dark:text-slate-400`}>{acc.type}</td>
-                    <td className={tdCls}><CountdownTimer nextDueAt={timer?.next_due_at} /></td>
+                    <td className={tdCls}>
+                      <CountdownTimer 
+                        nextDueAt={timer?.next_due_at} 
+                        accountId={acc.id}
+                        platform={acc.platform}
+                        email={acc.email}
+                        userId={user.id}
+                      />
+                    </td>
                     <td className={`${tdCls} text-slate-400 dark:text-slate-500 text-xs`}>
                       {timer ? `Every ${timer.interval_hours}h` : '—'}
                     </td>
                     <td className={`${tdCls} text-right`}>
-                      <div className="flex items-center justify-end gap-4">
+                      <div className="flex items-center justify-end gap-2">
                         {timer && (
-                          <button onClick={() => handleMarkRefreshed(timer.id, timer.interval_hours)}
-                            className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
-                            ✓ Refreshed
+                          <button onClick={() => handleMarkRefreshed(timer.id, timer.interval_hours, acc.platform, acc.email)}
+                            className="text-[11px] px-2 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold rounded-md hover:bg-emerald-500/20 transition-colors mr-2">
+                            Refreshed
                           </button>
                         )}
-                        <Link to={`/accounts/${acc.id}/edit`}
-                          className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
-                          Edit
-                        </Link>
+                        <button onClick={() => { setEditingAccount(acc); setIsModalOpen(true); }}
+                          className="p-1 text-muted-foreground hover:text-foreground transition-colors" title="Edit">
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         <button onClick={() => handleArchive(acc.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors text-sm font-medium">
-                          Archive
+                          className="p-1 text-muted-foreground hover:text-destructive transition-colors" title="Archive">
+                          <Archive className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -149,6 +167,13 @@ export default function AccountsIndex() {
         </div>
         </>
       )}
+
+      <AccountModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        account={editingAccount} 
+        onSave={() => load()} 
+      />
     </div>
   )
 }

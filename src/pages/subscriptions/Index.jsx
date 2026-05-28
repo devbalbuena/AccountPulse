@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import DaysUntilBadge from '@/components/DaysUntilBadge'
-import { Search } from 'lucide-react'
+import SubscriptionModal from '@/components/SubscriptionModal'
+import { computeNextBillingDate } from '@/lib/subscriptionUtils'
+import { Search, Pencil, Archive } from 'lucide-react'
 
 const thCls = "px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-left bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800"
 const tdCls = "px-4 py-3.5 text-sm text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60 align-middle"
@@ -24,12 +26,43 @@ export default function SubscriptionsIndex() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('All')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingSub, setEditingSub] = useState(null)
 
   async function load() {
     const { data } = await supabase
       .from('subscriptions').select('*')
       .is('deleted_at', null).eq('user_id', user.id)
       .order('next_billing_date', { ascending: true })
+
+    if (data && data.length > 0) {
+      let changed = false
+      const now = new Date()
+      now.setHours(0, 0, 0, 0)
+      
+      const updatedData = [...data]
+      for (let i = 0; i < data.length; i++) {
+        const sub = data[i]
+        const nextBillDate = new Date(sub.next_billing_date)
+        
+        if (nextBillDate < now && sub.billing_day) {
+           const newDate = computeNextBillingDate(sub.billing_day)
+           if (new Date(newDate) > nextBillDate) {
+             updatedData[i] = { ...sub, next_billing_date: newDate }
+             supabase.from('subscriptions').update({ next_billing_date: newDate }).eq('id', sub.id).then(() => {}) // silently catch
+             changed = true
+           }
+        }
+      }
+      
+      if (changed) {
+        updatedData.sort((a, b) => new Date(a.next_billing_date) - new Date(b.next_billing_date))
+        setSubs(updatedData)
+        setLoading(false)
+        return
+      }
+    }
+
     setSubs(data || [])
     setLoading(false)
   }
@@ -68,10 +101,10 @@ export default function SubscriptionsIndex() {
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors">
             Archived
           </Link>
-          <Link to="/subscriptions/new"
+          <button onClick={() => { setEditingSub(null); setIsModalOpen(true); }}
             className="px-4 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors">
             + Add Subscription
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -138,11 +171,15 @@ export default function SubscriptionsIndex() {
                       {sub.notes || '—'}
                     </td>
                     <td className={`${tdCls} text-right`}>
-                      <div className="flex items-center justify-end gap-4">
-                        <Link to={`/subscriptions/${sub.id}/edit`}
-                          className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Edit</Link>
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => { setEditingSub(sub); setIsModalOpen(true); }}
+                          className="p-1 text-muted-foreground hover:text-foreground transition-colors" title="Edit">
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         <button onClick={() => handleArchive(sub.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors text-sm font-medium">Archive</button>
+                          className="p-1 text-muted-foreground hover:text-destructive transition-colors" title="Archive">
+                          <Archive className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -153,6 +190,13 @@ export default function SubscriptionsIndex() {
         </div>
         </>
       )}
+
+      <SubscriptionModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        subscription={editingSub} 
+        onSave={() => load()} 
+      />
     </div>
   )
 }
