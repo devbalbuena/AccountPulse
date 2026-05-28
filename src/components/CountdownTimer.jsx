@@ -1,0 +1,77 @@
+import { useState, useEffect } from 'react'
+
+export default function CountdownTimer({ nextDueAt }) {
+  const [timeLeft, setTimeLeft] = useState('')
+  const [status, setStatus] = useState('ok')
+
+  useEffect(() => {
+    if (!nextDueAt) {
+      setTimeLeft('No timer')
+      setStatus('ok')
+      return
+    }
+
+    function calculate() {
+      const now = new Date()
+      const due = new Date(nextDueAt)
+      const diff = due - now
+
+      if (diff <= 0) {
+        setTimeLeft('Expired')
+        setStatus('expired')
+        return
+      }
+
+      const totalSeconds = Math.floor(diff / 1000)
+      const days = Math.floor(totalSeconds / 86400)
+      const hours = Math.floor((totalSeconds % 86400) / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      const seconds = totalSeconds % 60
+
+      if (days > 0) {
+        setTimeLeft(`${days}d ${hours}h ${minutes}m`)
+      } else if (hours > 0) {
+        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`)
+      } else {
+        setTimeLeft(`${minutes}m ${seconds}s`)
+      }
+
+      const totalHours = diff / 3600000
+      if (totalHours < 5) setStatus('warning')
+      else setStatus('ok')
+    }
+
+    calculate()
+    const interval = setInterval(calculate, 1000)
+    return () => clearInterval(interval)
+  }, [nextDueAt])
+
+  const statusClasses = {
+    ok: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/10',
+    warning: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900',
+    expired: 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900',
+  }
+
+  const dotClasses = {
+    ok: '',
+    warning: 'bg-amber-500',
+    expired: 'bg-red-500',
+  }
+
+  if (status === 'ok' && !nextDueAt) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium font-mono border bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+        No timer
+      </span>
+    )
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${statusClasses[status]}`}>
+      {status !== 'ok' && (
+        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${dotClasses[status]}`} />
+      )}
+      {timeLeft}
+    </span>
+  )
+}
