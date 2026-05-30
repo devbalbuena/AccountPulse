@@ -94,7 +94,7 @@ export default function AppLayout() {
 
       {/* ── Sidebar ── */}
       <aside
-        className={`${sidebarW} shrink-0 min-h-screen flex flex-col py-4 border-r transition-all duration-300 ease-in-out overflow-hidden`}
+        className={`${sidebarW} fixed inset-y-0 left-0 z-20 flex flex-col py-4 border-r transition-all duration-300 ease-in-out`}
         style={{ background: 'var(--sidebar)', borderColor: 'var(--border)' }}
       >
         {/* Logo */}
@@ -111,7 +111,7 @@ export default function AppLayout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex flex-col gap-0.5 flex-1 px-2">
+        <nav className="flex flex-col gap-0.5 flex-1 px-2 overflow-y-auto custom-scrollbar">
           {NAV_ITEMS.map(item => (
             <NavLink
               key={item.to}
@@ -178,7 +178,10 @@ export default function AppLayout() {
       </aside>
 
       {/* ── Right Panel (Top Bar + Content) ── */}
-      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+      <div 
+        className="flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ease-in-out"
+        style={{ marginLeft: collapsed ? '64px' : '200px' }}
+      >
 
         {/* Top Bar */}
         <header className="h-14 shrink-0 flex items-center gap-4 px-6 border-b"

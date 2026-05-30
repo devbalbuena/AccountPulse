@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function CountdownTimer({ nextDueAt, accountId, platform, email, userId }) {
+export default function CountdownTimer({ nextDueAt, accountId, platform, email, userId, large = false }) {
   const [timeLeft, setTimeLeft] = useState('')
   const [status, setStatus] = useState('ok')
   const lastNotifiedDueAt = useRef(null)
@@ -71,16 +71,31 @@ export default function CountdownTimer({ nextDueAt, accountId, platform, email, 
 
   if (status === 'ok' && !nextDueAt) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium font-mono border bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+      <span className={large 
+        ? "text-xl font-bold tracking-tight" 
+        : "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium font-mono border bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+      } style={large ? { color: 'var(--muted-foreground)' } : {}}>
         No timer
       </span>
     )
   }
 
+  const largeClasses = {
+    ok: { color: 'var(--foreground)' },
+    warning: { color: '#f59e0b' },
+    expired: { color: '#ef4444' }
+  }
+
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${statusClasses[status]}`}>
+    <span 
+      className={large 
+        ? `inline-flex items-center gap-2 text-[26px] font-bold tracking-tight tabular-nums` 
+        : `inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${statusClasses[status]}`
+      }
+      style={large ? largeClasses[status] : {}}
+    >
       {status !== 'ok' && (
-        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${dotClasses[status]}`} />
+        <span className={`rounded-full animate-pulse ${dotClasses[status]} ${large ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'}`} />
       )}
       {timeLeft}
     </span>

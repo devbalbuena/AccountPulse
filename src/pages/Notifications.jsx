@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
-import { Bell } from 'lucide-react'
+import { Bell, CheckCheck, Trash2 } from 'lucide-react'
 
 function timeAgo(ts) {
   if (!ts) return ''
@@ -38,6 +38,17 @@ export default function Notifications() {
     load()
   }
 
+  async function clearAll() {
+    if (!confirm('Delete all notifications? This cannot be undone.')) return
+    const { error } = await supabase.from('notifications').delete().eq('user_id', user.id)
+    if (error) {
+      console.error('[Clear Notifications] Delete failed:', error)
+      alert(`Clear failed: ${error.message}`)
+    } else {
+      setNotifications([])
+    }
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-32">
       <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
@@ -45,19 +56,40 @@ export default function Notifications() {
     </div>
   )
 
+  const unreadCount = notifications.filter(n => !n.is_read).length
+
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Notifications</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>{notifications.length} total</p>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
+            {notifications.length} total
+            {unreadCount > 0 && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold"
+              style={{ background: 'color-mix(in srgb, var(--ap-accent) 15%, transparent)', color: 'var(--ap-accent)' }}>
+              {unreadCount} unread
+            </span>}
+          </p>
         </div>
-        {notifications.some(n => !n.is_read) && (
-          <button onClick={markAllRead}
-            className="text-sm font-medium hover:underline"
-            style={{ color: 'var(--ap-accent)' }}>
-            Mark all as read
-          </button>
+
+        {notifications.length > 0 && (
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button onClick={markAllRead}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-muted"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+                <CheckCheck className="w-3.5 h-3.5" />
+                Mark all read
+              </button>
+            )}
+            <button onClick={clearAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-muted"
+              style={{ borderColor: 'var(--border)', color: '#ef4444', borderColor: 'color-mix(in srgb, #ef4444 30%, var(--border))' }}>
+              <Trash2 className="w-3.5 h-3.5" />
+              Clear all
+            </button>
+          </div>
         )}
       </div>
 
@@ -69,7 +101,7 @@ export default function Notifications() {
             <Bell className="w-6 h-6" style={{ color: 'var(--ap-accent)' }} />
           </div>
           <p className="font-medium" style={{ color: 'var(--foreground)' }}>No notifications yet</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--muted-foreground)' }}>You'll be notified when token timers expire</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--muted-foreground)' }}>Activity will appear here as you use the app</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -77,7 +109,7 @@ export default function Notifications() {
             <div
               key={n.id}
               onClick={() => !n.is_read && markRead(n.id)}
-              className="flex items-start justify-between gap-4 px-5 py-4 rounded-2xl border transition-all"
+              className="flex items-start justify-between gap-4 px-5 py-4 rounded-2xl border transition-all group"
               style={{
                 background: n.is_read ? 'var(--card)' : 'color-mix(in srgb, var(--ap-accent) 6%, var(--card))',
                 borderColor: n.is_read ? 'var(--border)' : 'color-mix(in srgb, var(--ap-accent) 30%, var(--border))',
@@ -101,10 +133,11 @@ export default function Notifications() {
                   </p>
                 </div>
               </div>
-              {!n.is_read && (
-                <span className="w-2 h-2 rounded-full shrink-0 mt-2"
-                  style={{ background: 'var(--ap-accent)' }} />
-              )}
+              <div className="flex items-center gap-2 shrink-0 mt-1">
+                {!n.is_read && (
+                  <span className="w-2 h-2 rounded-full" style={{ background: 'var(--ap-accent)' }} />
+                )}
+              </div>
             </div>
           ))}
         </div>
