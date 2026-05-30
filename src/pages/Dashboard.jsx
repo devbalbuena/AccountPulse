@@ -136,6 +136,7 @@ export default function Dashboard() {
   const [subscriptions, setSubscriptions] = useState([])
   const [activity, setActivity] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isLoaded, setIsLoaded] = useState(false)
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false)
   const [isSubModalOpen, setIsSubModalOpen] = useState(false)
 
@@ -151,6 +152,7 @@ export default function Dashboard() {
     setTotalAccounts(accCount || 0)
     setActivity(notifs || [])
     setLoading(false)
+    setTimeout(() => setIsLoaded(true), 100)
   }, [user])
 
   useEffect(() => { load() }, [load])
@@ -212,6 +214,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className={`transition-all duration-700 space-y-6 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
       {/* ── Row 1: Stat Cards ── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="Total Accounts" value={totalAccounts}
@@ -337,6 +340,8 @@ export default function Dashboard() {
           )}
         </Panel>
       </div>
+
+      </div>{/* end animation wrapper */}
 
       {/* Modals */}
       <AccountModal

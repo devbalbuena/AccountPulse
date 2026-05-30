@@ -73,6 +73,7 @@ export default function SubscriptionsIndex() {
   const { user } = useAuth()
   const [subs, setSubs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isLoaded, setIsLoaded] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingSub, setEditingSub] = useState(null)
@@ -115,6 +116,7 @@ export default function SubscriptionsIndex() {
     }
     
     setLoading(false)
+    setTimeout(() => setIsLoaded(true), 100)
   }, [user])
 
   useEffect(() => { load() }, [load])
@@ -208,7 +210,7 @@ export default function SubscriptionsIndex() {
       </div>
 
       {/* ── Content Layout ── */}
-      <div className="flex flex-col lg:flex-row items-start gap-5">
+      <div className={`transition-all duration-700 flex flex-col lg:flex-row items-start gap-5 flex-1 min-h-0 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         
         {/* Left Side: Card Grid */}
         <div className="flex-1 w-full min-w-0">
