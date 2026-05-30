@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
-import { computeNextBillingDate } from '@/lib/subscriptionUtils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 
 const CURRENCIES = ['PHP', 'USD', 'EUR', 'GBP', 'SGD', 'JPY']
@@ -31,7 +30,15 @@ function resizeImageToBase64(file, maxSize = 128) {
 
 export default function SubscriptionModal({ isOpen, onClose, subscription, onSave }) {
   const { user } = useAuth()
-  const [form, setForm] = useState({ service_name: '', billing_day: '', amount: '', currency: 'PHP', notes: '' })
+  const [form, setForm] = useState({ 
+    service_name: '', 
+    next_billing_date: '', 
+    billing_interval: 'monthly',
+    custom_interval_days: '',
+    amount: '', 
+    currency: 'PHP', 
+    notes: '' 
+  })
   const [iconFile, setIconFile] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -39,15 +46,30 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
   useEffect(() => {
     if (isOpen) {
       if (subscription) {
+        // Extract YYYY-MM-DD from ISO string for standard HTML5 date input
+        const dateStr = subscription.next_billing_date ? subscription.next_billing_date.split('T')[0] : ''
+        
         setForm({
           service_name: subscription.service_name,
-          billing_day: subscription.billing_day,
+          next_billing_date: dateStr,
+          billing_interval: subscription.billing_interval || 'monthly',
+          custom_interval_days: subscription.custom_interval_days || '',
           amount: subscription.amount,
           currency: subscription.currency,
           notes: subscription.notes || ''
         })
       } else {
-        setForm({ service_name: '', billing_day: '', amount: '', currency: 'PHP', notes: '' })
+        // Default to today for new subscriptions
+        const today = new Date().toISOString().split('T')[0]
+        setForm({ 
+          service_name: '', 
+          next_billing_date: today,
+          billing_interval: 'monthly',
+          custom_interval_days: '',
+          amount: '', 
+          currency: 'PHP', 
+          notes: '' 
+        })
       }
       setIconFile(null)
       setError('')
@@ -58,36 +80,32 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
     e.preventDefault()
     setError('')
     
-    const day = parseInt(form.billing_day)
-    if (isNaN(day) || day < 1 || day > 31) { setError('Billing day must be between 1 and 31.'); return }
+    if (!form.next_billing_date) { setError('Please select a billing date.'); return }
+    if (form.billing_interval === 'custom' && (!form.custom_interval_days || form.custom_interval_days < 1)) {
+      setError('Please provide a valid custom interval in days.'); return
+    }
     if (isNaN(parseFloat(form.amount)) || parseFloat(form.amount) <= 0) { setError('Amount must be a positive number.'); return }
     
     setLoading(true)
     
     let subId = subscription?.id
 
+    const payload = {
+      service_name: form.service_name, 
+      next_billing_date: form.next_billing_date,
+      billing_interval: form.billing_interval,
+      custom_interval_days: form.billing_interval === 'custom' ? parseInt(form.custom_interval_days) : null,
+      amount: parseFloat(form.amount), 
+      currency: form.currency, 
+      notes: form.notes || null
+    }
+
     if (subscription) {
-      const { error: err } = await supabase.from('subscriptions').update({
-        service_name: form.service_name, 
-        billing_day: day,
-        next_billing_date: computeNextBillingDate(day),
-        amount: parseFloat(form.amount), 
-        currency: form.currency, 
-        notes: form.notes || null
-      }).eq('id', subscription.id)
-      
+      const { error: err } = await supabase.from('subscriptions').update(payload).eq('id', subscription.id)
       if (err) { setError(err.message); setLoading(false); return }
     } else {
-      const { data, error: err } = await supabase.from('subscriptions').insert({
-        user_id: user.id, 
-        service_name: form.service_name, 
-        billing_day: day,
-        next_billing_date: computeNextBillingDate(day),
-        amount: parseFloat(form.amount), 
-        currency: form.currency, 
-        notes: form.notes || null
-      }).select().single()
-      
+      payload.user_id = user.id
+      const { data, error: err } = await supabase.from('subscriptions').insert(payload).select().single()
       if (err) { setError(err.message); setLoading(false); return }
       if (data) subId = data.id
     }
@@ -97,13 +115,11 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
         const base64 = await resizeImageToBase64(iconFile, 128)
         const { error: urlErr } = await supabase.from('subscriptions').update({ icon_url: base64 }).eq('id', subId)
         if (urlErr) {
-          console.error('[Icon] Failed to save base64 to DB:', urlErr)
           setError(`Could not save icon: ${urlErr.message}`)
           setLoading(false)
           return
         }
       } catch (err) {
-        console.error('[Icon] Resize error:', err)
         setError('Could not process image. Please try a different file.')
         setLoading(false)
         return
@@ -115,12 +131,9 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
     onClose()
   }
 
-  const previewDay = parseInt(form.billing_day)
-  const previewDate = (!isNaN(previewDay) && previewDay >= 1 && previewDay <= 31) ? computeNextBillingDate(previewDay) : null
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{subscription ? 'Edit Subscription' : 'Add Subscription'}</DialogTitle>
           <DialogDescription>
@@ -152,16 +165,30 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
             {iconFile && <p className="text-xs mt-1 text-emerald-500">Selected: {iconFile.name}</p>}
           </div>
 
-          <div>
-            <label className={labelCls}>Billing Day of Month</label>
-            <input type="number" required min="1" max="31" className={inputCls} placeholder="e.g. 15"
-              value={form.billing_day} onChange={e => setForm({ ...form, billing_day: e.target.value })} />
-            {previewDate && (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5 font-medium">
-                Next bill: {new Date(previewDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-              </p>
-            )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Next Billing Date</label>
+              <input type="date" required className={inputCls}
+                value={form.next_billing_date} onChange={e => setForm({ ...form, next_billing_date: e.target.value })} />
+            </div>
+            <div>
+              <label className={labelCls}>Billing Interval</label>
+              <select className={inputCls} value={form.billing_interval} onChange={e => setForm({ ...form, billing_interval: e.target.value })}>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="annually">Annually</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
           </div>
+
+          {form.billing_interval === 'custom' && (
+            <div>
+              <label className={labelCls}>Custom Interval (Days)</label>
+              <input type="number" required min="1" className={inputCls} placeholder="e.g. 14 for bi-weekly"
+                value={form.custom_interval_days} onChange={e => setForm({ ...form, custom_interval_days: e.target.value })} />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -44,7 +44,9 @@ export default function AppLayout() {
   const [notifications, setNotifications] = useState([])
   const [collapsed, setCollapsed] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const notifRef = useRef(null)
+  const profileRef = useRef(null)
 
   async function loadNotifications() {
     if (!user) return
@@ -85,6 +87,15 @@ export default function AppLayout() {
     if (notifOpen) document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
   }, [notifOpen])
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    function handle(e) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false)
+    }
+    if (profileOpen) document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [profileOpen])
 
   const avatarLetter = user?.email?.[0]?.toUpperCase() || '?'
   const sidebarW = collapsed ? 'w-16' : 'w-[200px]'
@@ -204,10 +215,6 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-1 ml-auto">
-            {/* Settings */}
-            <button className="p-2 rounded-lg transition-colors hover:bg-muted" style={{ color: 'var(--muted-foreground)' }} title="Settings">
-              <Settings className="w-4.5 h-4.5" />
-            </button>
 
             {/* Notifications Bell */}
             <button
@@ -225,15 +232,66 @@ export default function AppLayout() {
               )}
             </button>
 
-            {/* User Avatar */}
-            <button
-              onClick={handleLogout}
-              title={`Signed in as ${user?.email} · Click to sign out`}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ml-1 transition-opacity hover:opacity-80"
-              style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}
-            >
-              {avatarLetter}
-            </button>
+            {/* User Avatar + Dropdown */}
+            <div className="relative ml-1" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen(o => !o)}
+                title={`Signed in as ${user?.email}`}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold transition-opacity hover:opacity-80"
+                style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}
+              >
+                {avatarLetter}
+              </button>
+
+              {/* Profile Dropdown */}
+              {profileOpen && (
+                <div
+                  className="absolute right-0 top-full mt-2 w-60 rounded-xl border shadow-xl z-50 overflow-hidden"
+                  style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+                >
+                  {/* Header */}
+                  <div className="px-4 py-3.5 border-b" style={{ borderColor: 'var(--border)' }}>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                      {user?.email?.split('@')[0]}
+                    </p>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--muted-foreground)' }}>
+                      {user?.email}
+                    </p>
+                  </div>
+
+                  {/* Nav Links */}
+                  <div className="py-1">
+                    <Link
+                      to="/settings"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-muted"
+                      style={{ color: 'var(--foreground)' }}
+                    >
+                      <Settings className="w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
+                      Account Settings
+                    </Link>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-muted text-left"
+                      style={{ color: 'var(--foreground)' }}
+                    >
+                      <span className="w-4 h-4 flex items-center justify-center text-xs" style={{ color: 'var(--muted-foreground)' }}>?</span>
+                      Help & Support
+                    </button>
+                  </div>
+
+                  {/* Divider + Sign Out */}
+                  <div className="border-t py-1" style={{ borderColor: 'var(--border)' }}>
+                    <button
+                      onClick={() => { setProfileOpen(false); handleLogout() }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-red-500/10 text-left text-red-500"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

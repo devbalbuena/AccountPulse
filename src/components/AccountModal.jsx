@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ImageIcon } from 'lucide-react'
+import { ImageIcon, Plus, Trash2 } from 'lucide-react'
 
 const inputCls = "w-full px-3.5 py-2.5 rounded-lg text-sm bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
 const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5"
 
-// Resize image to maxSize x maxSize and return as base64 JPEG data URL
 function resizeImageToBase64(file, maxSize = 128) {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -27,9 +26,15 @@ function resizeImageToBase64(file, maxSize = 128) {
   })
 }
 
+function emptyTimer() {
+  return { id: null, model_name: 'Model', interval_days: '', interval_hours: '', touched: false, originalNextDueAt: null }
+}
+
 export default function AccountModal({ isOpen, onClose, account, onSave }) {
   const { user } = useAuth()
-  const [form, setForm] = useState({ email: '', platform: '', type: '', notes: '', interval_days: '', interval_hours: '' })
+  const [form, setForm] = useState({ email: '', platform: '', type: '', notes: '' })
+  const [timers, setTimers] = useState([emptyTimer()])
+  
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [iconFile, setIconFile] = useState(null)
@@ -38,19 +43,34 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
   useEffect(() => {
     if (isOpen) {
       if (account) {
-        const totalHours = account.token_timers?.[0]?.interval_hours || 0
         setForm({
           email: account.email,
           platform: account.platform,
           type: account.type,
-          notes: account.notes || '',
-          interval_days: Math.floor(totalHours / 24) || '',
-          interval_hours: totalHours % 24 || ''
+          notes: account.notes || ''
         })
         setIconPreview(account.icon_url || '')
+        
+        if (account.token_timers && account.token_timers.length > 0) {
+          const loadedTimers = account.token_timers.slice(0, 2).map(t => {
+            const totalHours = t.interval_hours || 0
+            return {
+              id: t.id,
+              model_name: t.model_name || 'Model',
+              interval_days: Math.floor(totalHours / 24) || '',
+              interval_hours: totalHours % 24 || '',
+              touched: false,
+              originalNextDueAt: t.next_due_at || null
+            }
+          })
+          setTimers(loadedTimers)
+        } else {
+          setTimers([emptyTimer()])
+        }
       } else {
-        setForm({ email: '', platform: '', type: '', notes: '', interval_days: '', interval_hours: '' })
+        setForm({ email: '', platform: '', type: '', notes: '' })
         setIconPreview('')
+        setTimers([emptyTimer()])
       }
       setIconFile(null)
       setError('')
@@ -78,44 +98,76 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
 
     if (iconFile) {
       try {
-        // Resize image to 128x128 via canvas and store as base64 - no Storage bucket needed
         const base64 = await resizeImageToBase64(iconFile, 128)
         const { error: urlErr } = await supabase.from('accounts').update({ icon_url: base64 }).eq('id', accId)
         if (urlErr) {
-          console.error('[Icon] Failed to save base64 to DB:', urlErr)
           setError(`Could not save icon: ${urlErr.message}`)
         }
       } catch (err) {
-        console.error('[Icon] Resize error:', err)
-        setError('Could not process image. Please try a different file.')
+        setError('Could not process image.')
       }
     }
 
-    const days = parseInt(form.interval_days) || 0
-    const hours = parseInt(form.interval_hours) || 0
-    const totalHours = (days * 24) + hours
-    const timerId = account?.token_timers?.[0]?.id
-
-    if (totalHours > 0) {
-      const nextDue = new Date(Date.now() + totalHours * 3600000)
-      const timerData = { account_id: accId, interval_hours: totalHours, next_due_at: nextDue.toISOString() }
-      if (timerId) {
-        await supabase.from('token_timers').update(timerData).eq('id', timerId)
-      } else {
-        await supabase.from('token_timers').insert(timerData)
+    // Handle timers
+    const savedTimerIds = []
+    
+    for (const t of timers) {
+      const days = parseInt(t.interval_days) || 0
+      const hours = parseInt(t.interval_hours) || 0
+      const totalHours = (days * 24) + hours
+      
+      if (totalHours > 0) {
+        // State Preservation Logic: only reset time if explicitly touched
+        const nextDue = t.touched
+          ? new Date(Date.now() + totalHours * 3600000).toISOString()
+          : (t.originalNextDueAt || new Date(Date.now() + totalHours * 3600000).toISOString())
+          
+        const timerData = { 
+          account_id: accId, 
+          model_name: t.model_name,
+          interval_hours: totalHours, 
+          next_due_at: nextDue 
+        }
+        
+        if (t.id) {
+          await supabase.from('token_timers').update(timerData).eq('id', t.id)
+          savedTimerIds.push(t.id)
+        } else {
+          const { data } = await supabase.from('token_timers').insert(timerData).select().single()
+          if (data) savedTimerIds.push(data.id)
+        }
+      } else if (t.id) {
+        // If they cleared the time inputs, delete the timer
+        await supabase.from('token_timers').delete().eq('id', t.id)
       }
-    } else if (timerId) {
-      await supabase.from('token_timers').delete().eq('id', timerId)
+    }
+    
+    // Clean up any timers that were removed from the UI entirely
+    if (account?.token_timers) {
+      for (const oldT of account.token_timers) {
+        if (!savedTimerIds.includes(oldT.id)) {
+          await supabase.from('token_timers').delete().eq('id', oldT.id)
+        }
+      }
     }
 
     setLoading(false)
     onSave(form.platform)
     onClose()
   }
+  
+  function updateTimer(index, field, value) {
+    const newTimers = [...timers]
+    newTimers[index][field] = value
+    if (field === 'interval_days' || field === 'interval_hours') {
+      newTimers[index].touched = true
+    }
+    setTimers(newTimers)
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{account ? 'Edit Account' : 'Add Account'}</DialogTitle>
           <DialogDescription>
@@ -163,7 +215,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
           </div>
           <div>
             <label className={labelCls}>Type</label>
-            <input type="text" required className={inputCls} placeholder="e.g. Social, Email, Streaming"
+            <input type="text" required className={inputCls} placeholder="e.g. Social, AI, Streaming"
               value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} />
           </div>
           <div>
@@ -172,20 +224,47 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
               value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
           </div>
 
-          <div className="border-t border-border/50 pt-5 mt-1">
-            <p className="text-[11px] font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Token Refresh Interval <span className="font-normal normal-case">(optional)</span></p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Days</label>
-                <input type="number" min="0" className={inputCls} placeholder="0"
-                  value={form.interval_days} onChange={e => setForm({ ...form, interval_days: e.target.value })} />
-              </div>
-              <div>
-                <label className={labelCls}>Hours</label>
-                <input type="number" min="0" max="23" className={inputCls} placeholder="0"
-                  value={form.interval_hours} onChange={e => setForm({ ...form, interval_hours: e.target.value })} />
-              </div>
+          <div className="border-t border-border/50 pt-5 mt-1 space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Token Refresh Timers <span className="font-normal normal-case">(optional, max 2)</span>
+              </p>
+              {timers.length < 2 && (
+                <button type="button" onClick={() => setTimers([...timers, emptyTimer()])}
+                  className="flex items-center gap-1 text-[11px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors">
+                  <Plus className="w-3 h-3" /> Add Model
+                </button>
+              )}
             </div>
+            
+            {timers.map((t, idx) => (
+              <div key={idx} className="p-3.5 rounded-xl border bg-muted/20 relative" style={{ borderColor: 'var(--border)' }}>
+                {timers.length > 1 && (
+                  <button type="button" onClick={() => setTimers(timers.filter((_, i) => i !== idx))}
+                    className="absolute top-3 right-3 text-muted-foreground hover:text-red-500 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+                
+                <div className="mb-3 pr-8">
+                  <label className={labelCls}>Model Name</label>
+                  <input type="text" className={inputCls} placeholder="e.g. Claude 3.5 Sonnet"
+                    value={t.model_name} onChange={e => updateTimer(idx, 'model_name', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Interval (Days)</label>
+                    <input type="number" min="0" className={inputCls} placeholder="0"
+                      value={t.interval_days} onChange={e => updateTimer(idx, 'interval_days', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Interval (Hours)</label>
+                    <input type="number" min="0" max="23" className={inputCls} placeholder="0"
+                      value={t.interval_hours} onChange={e => updateTimer(idx, 'interval_hours', e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
           
           <div className="flex items-center gap-3 justify-end pt-2">

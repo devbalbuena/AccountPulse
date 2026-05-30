@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import CountdownTimer from '@/components/CountdownTimer'
 import AccountModal from '@/components/AccountModal'
-import { Search, Pencil, Trash2, RotateCw, Eraser } from 'lucide-react'
+import { Search, Pencil, Trash2, RotateCw, Eraser, MoreVertical, Archive } from 'lucide-react'
 
 const PALETTE = ['#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6']
 function getPlatformColor(name) {
@@ -21,6 +21,45 @@ function timeAgo(ts) {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   return `${Math.floor(diff / 86400)}d ago`
+}
+
+function CardMenu({ onEdit, onArchive }) {
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button onClick={() => setOpen(!open)}
+        className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-muted"
+        style={{ color: 'var(--muted-foreground)' }}>
+        <MoreVertical className="w-4 h-4" />
+      </button>
+      
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-32 rounded-lg shadow-lg border overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100"
+          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <button onClick={() => { setOpen(false); onEdit(); }}
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+            style={{ color: 'var(--foreground)' }}>
+            <Pencil className="w-4 h-4 text-muted-foreground" /> Edit
+          </button>
+          <button onClick={() => { setOpen(false); onArchive(); }}
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-red-500/10 transition-colors text-left"
+            style={{ color: '#ef4444' }}>
+            <Archive className="w-4 h-4" /> Archive
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AccountsIndex() {
@@ -152,55 +191,18 @@ export default function AccountsIndex() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredAccounts.map(acc => {
-                const timer = acc.token_timers?.[0]
+                const timers = acc.token_timers?.slice(0, 2) || []
                 const color = getPlatformColor(acc.platform)
                 const initial = acc.platform?.[0]?.toUpperCase() || '?'
-                
-                // Status Badge Logic
-                let statusBadge = { label: 'No Timer', bg: 'color-mix(in srgb, var(--muted) 20%, transparent)', text: 'var(--muted-foreground)' }
-                let progressPct = 0
-                let progColor = 'var(--border)'
-                
-                if (timer?.next_due_at) {
-                  const now = new Date()
-                  const due = new Date(timer.next_due_at)
-                  const diff = due - now
-                  const totalMs = (timer.interval_hours || 0) * 3600000
-                  progressPct = totalMs > 0 ? Math.max(0, Math.min(100, (diff / totalMs) * 100)) : 0
-                  
-                  if (diff <= 0) {
-                    statusBadge = { label: 'Expired', bg: 'color-mix(in srgb, #ef4444 20%, transparent)', text: '#ef4444' }
-                    progColor = '#ef4444'
-                  } else if (diff <= 86400000) { // < 24h
-                    statusBadge = { label: 'Expiring', bg: 'color-mix(in srgb, #f59e0b 20%, transparent)', text: '#f59e0b' }
-                    progColor = '#f59e0b'
-                  } else {
-                    statusBadge = { label: 'Active', bg: 'color-mix(in srgb, var(--ap-accent3) 20%, transparent)', text: 'var(--ap-accent3)' }
-                    progColor = progressPct > 20 ? 'var(--ap-accent3)' : '#f59e0b'
-                  }
-                }
 
                 return (
                   <div key={acc.id} 
-                    className="rounded-2xl border flex flex-col transition-all duration-300 relative group overflow-hidden"
-                    style={{ 
-                      background: 'var(--card)', 
-                      borderColor: 'var(--border)',
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'translateY(-2px)'
-                      e.currentTarget.style.boxShadow = `0 4px 20px -5px color-mix(in srgb, var(--ap-accent) 20%, transparent)`
-                      e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--ap-accent) 40%, var(--border))'
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'none'
-                      e.currentTarget.style.boxShadow = 'none'
-                      e.currentTarget.style.borderColor = 'var(--border)'
-                    }}>
-                    
-                    {/* Top Section (Padding 1.5rem = p-6) */}
-                    <div className="p-5 flex flex-col">
-                      <div className="flex items-start gap-3.5 mb-5">
+                    className="rounded-2xl border flex flex-col p-5 transition-all duration-300 relative group overflow-hidden"
+                    style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+                  >
+                    {/* Top Row with Platform, Subtitle and CardMenu */}
+                    <div className="flex items-start justify-between mb-5">
+                      <div className="flex items-start gap-3.5 min-w-0 pr-4">
                         {acc.icon_url ? (
                           <img src={acc.icon_url} alt={acc.platform} className="w-[42px] h-[42px] rounded-[10px] object-cover shrink-0" />
                         ) : (
@@ -208,63 +210,77 @@ export default function AccountsIndex() {
                             {initial}
                           </div>
                         )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex justify-between items-start gap-2">
-                            <p className="font-semibold truncate text-[15px] leading-tight" style={{ color: 'var(--foreground)' }}>{acc.platform}</p>
-                            <div className="px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide shrink-0"
-                              style={{ background: statusBadge.bg, color: statusBadge.text }}>
-                              {statusBadge.label}
-                            </div>
-                          </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate text-[15px] leading-tight" style={{ color: 'var(--foreground)' }}>{acc.platform}</p>
                           <p className="text-xs truncate mt-1" style={{ color: 'var(--muted-foreground)' }}>{acc.email}</p>
                           <p className="text-[11px] truncate mt-0.5" style={{ color: 'var(--muted-foreground)', opacity: 0.8 }}>{acc.type}</p>
                         </div>
                       </div>
-
-                      {/* Middle Section: Timer */}
-                      <div className="flex flex-col items-center justify-center mb-4">
-                        <p className="text-[10px] font-medium uppercase tracking-[0.05em] mb-1" style={{ color: 'var(--muted-foreground)' }}>Token Timer</p>
-                        <CountdownTimer 
-                          nextDueAt={timer?.next_due_at} 
-                          accountId={acc.id} platform={acc.platform} email={acc.email} userId={user.id}
-                          large
+                      <div className="shrink-0 -mr-2 -mt-1">
+                        <CardMenu 
+                          onEdit={() => { setEditingAccount(acc); setIsModalOpen(true); }}
+                          onArchive={() => handleArchive(acc)}
                         />
                       </div>
-
-                      {/* Progress Bar (inside card) */}
-                      <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'color-mix(in srgb, var(--border) 80%, transparent)' }}>
-                        {timer && (
-                          <div className="h-full rounded-full transition-all duration-1000 ease-linear"
-                            style={{ width: `${progressPct}%`, background: progColor }} />
-                        )}
-                      </div>
                     </div>
 
-                    {/* Bottom Section (Action Buttons) */}
-                    <div className="flex items-center justify-center gap-8 py-3.5 mt-auto" style={{ background: 'color-mix(in srgb, var(--muted) 10%, transparent)' }}>
-                      <button onClick={() => handleMarkRefreshed(timer.id, timer.interval_hours, acc.platform, acc.email)}
-                        disabled={!timer}
-                        className="group/btn relative w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Refresh token">
-                        <div className="absolute inset-0 rounded-full scale-0 group-hover/btn:scale-100 transition-transform bg-emerald-500/10 dark:bg-emerald-500/20" />
-                        <RotateCw className="w-4 h-4 relative z-10 transition-colors" style={{ color: timer ? 'color-mix(in srgb, var(--ap-accent3) 80%, var(--muted-foreground))' : 'var(--muted-foreground)' }} />
-                      </button>
+                    {/* Stack of Sub-Timers */}
+                    <div className="flex flex-col gap-3">
+                      {timers.length === 0 && (
+                        <p className="text-xs text-center py-4" style={{ color: 'var(--muted-foreground)' }}>No timers configured</p>
+                      )}
+                      
+                      {timers.map(timer => {
+                        let statusBadge = { label: 'No Timer', bg: 'color-mix(in srgb, var(--muted) 20%, transparent)', text: 'var(--muted-foreground)' }
+                        let progressPct = 0
+                        let progColor = 'var(--border)'
+                        
+                        if (timer?.next_due_at) {
+                          const now = new Date()
+                          const due = new Date(timer.next_due_at)
+                          const diff = due - now
+                          const totalMs = (timer.interval_hours || 0) * 3600000
+                          progressPct = totalMs > 0 ? Math.max(0, Math.min(100, (diff / totalMs) * 100)) : 0
+                          
+                          if (diff <= 0) {
+                            statusBadge = { label: 'Expired', bg: 'color-mix(in srgb, #ef4444 20%, transparent)', text: '#ef4444' }
+                            progColor = '#ef4444'
+                          } else if (diff <= 86400000) { // < 24h
+                            statusBadge = { label: 'Expiring', bg: 'color-mix(in srgb, #f59e0b 20%, transparent)', text: '#f59e0b' }
+                            progColor = '#f59e0b'
+                          } else {
+                            statusBadge = { label: 'Active', bg: 'color-mix(in srgb, var(--ap-accent3) 20%, transparent)', text: 'var(--ap-accent3)' }
+                            progColor = progressPct > 20 ? 'var(--ap-accent3)' : '#f59e0b'
+                          }
+                        }
 
-                      <button onClick={() => { setEditingAccount(acc); setIsModalOpen(true); }}
-                        className="group/btn relative w-8 h-8 rounded-full flex items-center justify-center transition-all"
-                        title="Edit account">
-                        <div className="absolute inset-0 rounded-full scale-0 group-hover/btn:scale-100 transition-transform bg-slate-200 dark:bg-slate-800" />
-                        <Pencil className="w-4 h-4 relative z-10 transition-colors" style={{ color: 'color-mix(in srgb, var(--foreground) 60%, var(--muted-foreground))' }} />
-                      </button>
-
-                      <button onClick={() => handleArchive(acc)}
-                        className="group/btn relative w-8 h-8 rounded-full flex items-center justify-center transition-all"
-                        title="Archive account">
-                        <div className="absolute inset-0 rounded-full scale-0 group-hover/btn:scale-100 transition-transform bg-amber-500/10 dark:bg-amber-500/20" />
-                        <Trash2 className="w-4 h-4 relative z-10 transition-colors" style={{ color: '#f59e0b' }} />
-                      </button>
+                        return (
+                          <div key={timer.id} className="p-3 rounded-xl border flex flex-col gap-2" style={{ borderColor: 'color-mix(in srgb, var(--border) 60%, transparent)', background: 'color-mix(in srgb, var(--muted) 30%, transparent)' }}>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold truncate pr-2" style={{ color: 'var(--foreground)' }}>{timer.model_name || 'Model'}</p>
+                              
+                              <div className="flex items-center gap-2">
+                                <CountdownTimer 
+                                  nextDueAt={timer?.next_due_at} 
+                                  accountId={acc.id} platform={acc.platform} email={acc.email} userId={user.id}
+                                />
+                                <button onClick={() => handleMarkRefreshed(timer.id, timer.interval_hours, acc.platform, acc.email)}
+                                  className="w-6 h-6 rounded-md flex items-center justify-center transition-colors hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-500"
+                                  title="Refresh token">
+                                  <RotateCw className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* Progress Bar (inside card) */}
+                            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'color-mix(in srgb, var(--border) 80%, transparent)' }}>
+                              <div className="h-full rounded-full transition-all duration-1000 ease-linear"
+                                style={{ width: `${progressPct}%`, background: progColor }} />
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-
                   </div>
                 )
               })}

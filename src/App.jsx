@@ -9,6 +9,7 @@ import SubscriptionsIndex from '@/pages/subscriptions/Index'
 import SubscriptionsArchived from '@/pages/subscriptions/Archived'
 import Notifications from '@/pages/Notifications'
 import Reports from '@/pages/Reports'
+import Settings from '@/pages/Settings'
 import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
 
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/subscriptions/archived" element={<SubscriptionsArchived />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
   )

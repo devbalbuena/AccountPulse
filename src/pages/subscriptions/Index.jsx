@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
-import { computeNextBillingDate } from '@/lib/subscriptionUtils'
-import { Search, MoreVertical, Pencil, Archive, History } from 'lucide-react'
+import { Search, MoreVertical, Pencil, Archive, History, Download } from 'lucide-react'
 
 // Reusable color hash for avatars
 const PALETTE = ['#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6']
@@ -27,6 +26,20 @@ function formatDateShort(d) {
 function formatMonthDay(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function advanceDate(dateStr, interval, customDays) {
+  const d = new Date(dateStr)
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  while (d < now) {
+    if (interval === 'monthly' || !interval) d.setMonth(d.getMonth() + 1)
+    else if (interval === 'quarterly') d.setMonth(d.getMonth() + 3)
+    else if (interval === 'annually') d.setFullYear(d.getFullYear() + 1)
+    else if (interval === 'custom' && customDays) d.setDate(d.getDate() + customDays)
+    else d.setMonth(d.getMonth() + 1) // fallback
+  }
+  return d.toISOString()
 }
 
 // Sub-component for the 3-dot menu on cards
@@ -95,11 +108,12 @@ export default function SubscriptionsIndex() {
         const sub = data[i]
         const nextBillDate = new Date(sub.next_billing_date)
         
-        if (nextBillDate < now && sub.billing_day) {
-           const newDate = computeNextBillingDate(sub.billing_day)
-           if (new Date(newDate) > nextBillDate) {
-             updatedData[i] = { ...sub, next_billing_date: newDate }
-             supabase.from('subscriptions').update({ next_billing_date: newDate }).eq('id', sub.id).then(() => {})
+        if (nextBillDate < now) {
+           const newDateStr = advanceDate(sub.next_billing_date, sub.billing_interval, sub.custom_interval_days)
+           const newDate = new Date(newDateStr)
+           if (newDate > nextBillDate) {
+             updatedData[i] = { ...sub, next_billing_date: newDateStr }
+             supabase.from('subscriptions').update({ next_billing_date: newDateStr }).eq('id', sub.id).then(() => {})
              changed = true
            }
         }
@@ -128,21 +142,43 @@ export default function SubscriptionsIndex() {
       return
     }
     const history = []
+    
+    const statuses = ['Successful', 'Successful', 'Successful', 'Pending', 'Failed']
+    const statusColors = {
+      'Successful': '#22c55e',
+      'Pending': '#f59e0b',
+      'Failed': '#ef4444'
+    }
+    const channels = ['Visa ...1234', 'Mastercard ...5678', 'PayPal', 'Amex ...9012']
+
     subs.forEach(sub => {
       const nextDate = new Date(sub.next_billing_date)
-      // Generate 3 past months
+      const interval = sub.billing_interval || 'monthly'
+      
+      // Generate 3 past cycles
       for (let i = 1; i <= 3; i++) {
         const pastDate = new Date(nextDate)
-        pastDate.setMonth(pastDate.getMonth() - i)
-        // Ensure it doesn't land in the future due to day shifts
+        
+        if (interval === 'monthly') pastDate.setMonth(pastDate.getMonth() - i)
+        else if (interval === 'quarterly') pastDate.setMonth(pastDate.getMonth() - (i * 3))
+        else if (interval === 'annually') pastDate.setFullYear(pastDate.getFullYear() - i)
+        else if (interval === 'custom' && sub.custom_interval_days) pastDate.setDate(pastDate.getDate() - (i * sub.custom_interval_days))
+        else pastDate.setMonth(pastDate.getMonth() - i)
+
         if (pastDate < new Date()) {
+          const randomStatus = statuses[Math.floor(Math.random() * statuses.length)]
+          const randomChannel = channels[Math.floor(Math.random() * channels.length)]
+          
           history.push({
             id: `${sub.id}-${i}`,
             service_name: sub.service_name,
             icon_url: sub.icon_url,
             amount: sub.amount,
             currency: sub.currency,
-            paid_on: pastDate
+            paid_on: pastDate,
+            status: randomStatus,
+            statusColor: statusColors[randomStatus],
+            channel: randomChannel
           })
         }
       }
@@ -158,12 +194,9 @@ export default function SubscriptionsIndex() {
     load()
   }
 
-  const totalMonthly = subs.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0)
-
   if (loading) return (
     <div className="flex items-center justify-center h-32">
-      <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-        style={{ borderColor: 'var(--ap-accent)', borderTopColor: 'transparent' }} />
+      <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--ap-accent)', borderTopColor: 'transparent' }} />
     </div>
   )
 
@@ -173,17 +206,9 @@ export default function SubscriptionsIndex() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      
-      {/* ── Header Section ── */}
+      {/* ── Top Bar ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Subscriptions</h2>
-          {subs.length > 0 && (
-            <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
-              Total Monthly: <span className="font-semibold" style={{ color: 'var(--foreground)' }}>PHP {totalMonthly.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-            </p>
-          )}
-        </div>
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Subscriptions</h2>
         <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
@@ -196,15 +221,10 @@ export default function SubscriptionsIndex() {
               style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
             />
           </div>
-          <Link to="/subscriptions/archived"
-            className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
-            style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
-            Archived
-          </Link>
           <button onClick={() => { setEditingSub(null); setIsModalOpen(true); }}
-            className="px-4 py-2 text-sm rounded-lg text-white font-medium transition-all hover:opacity-90 shadow-sm border border-cyan-400/20"
-            style={{ background: 'color-mix(in srgb, var(--ap-accent2) 80%, #000)' }}>
-            + Add Subscription
+            className="px-4 py-2 text-sm rounded-lg text-white font-medium transition-all hover:opacity-90 shadow-sm"
+            style={{ background: 'var(--ap-accent)' }}>
+            + Add Sub
           </button>
         </div>
       </div>
@@ -234,10 +254,16 @@ export default function SubscriptionsIndex() {
                   ? { label: 'Due Soon', bg: 'color-mix(in srgb, #f59e0b 20%, transparent)', text: '#f59e0b' }
                   : { label: 'Active', bg: 'color-mix(in srgb, #22c55e 15%, transparent)', text: '#22c55e' }
                 
-                // Fake progress percentage assuming ~30 day cycle
+                // Dynamic progress percentage based on interval
                 let progressPct = 100
                 if (days !== null) {
-                  progressPct = Math.max(0, Math.min(100, ((30 - days) / 30) * 100))
+                  let cycleDays = 30
+                  const interval = sub.billing_interval || 'monthly'
+                  if (interval === 'quarterly') cycleDays = 90
+                  else if (interval === 'annually') cycleDays = 365
+                  else if (interval === 'custom' && sub.custom_interval_days) cycleDays = sub.custom_interval_days
+                  
+                  progressPct = Math.max(0, Math.min(100, ((cycleDays - days) / cycleDays) * 100))
                 }
 
                 return (
@@ -284,9 +310,11 @@ export default function SubscriptionsIndex() {
                     <div className="flex items-end justify-between mb-3">
                       <div>
                         <span className="text-[22px] font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
-                          PHP {parseFloat(sub.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                          {sub.currency} {parseFloat(sub.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </span>
-                        <span className="text-xs ml-1 font-medium" style={{ color: 'var(--muted-foreground)' }}>/ month</span>
+                        <span className="text-xs ml-1 font-medium" style={{ color: 'var(--muted-foreground)' }}>
+                          / {sub.billing_interval === 'custom' ? `${sub.custom_interval_days}d` : (sub.billing_interval?.substring(0, 2) || 'mo')}
+                        </span>
                       </div>
                       <span className="text-xs font-semibold pb-1" style={{ color: barColor }}>
                         {days !== null ? `${days}d left` : '—'}
@@ -318,9 +346,9 @@ export default function SubscriptionsIndex() {
         </div>
 
         {/* Right Side: Billing History Panel */}
-        <div className="w-full lg:w-[280px] shrink-0 sticky top-4 rounded-2xl flex flex-col"
+        <div className="w-full lg:w-[320px] shrink-0 sticky top-4 rounded-2xl flex flex-col"
           style={{ background: 'var(--card)', maxHeight: 'calc(100vh - 7rem)', border: '1px solid var(--border)' }}>
-          <div className="px-5 py-3.5 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="px-5 py-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
             <h3 className="text-[15px] font-bold" style={{ color: 'var(--foreground)' }}>Billing History</h3>
             <History className="w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
           </div>
@@ -331,37 +359,54 @@ export default function SubscriptionsIndex() {
                 <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>No history available</p>
               </div>
             ) : (
-              <div className="relative mt-4">
+              <div className="relative mt-5">
                 {billingHistory.map((n, idx) => {
                   return (
-                    <div key={n.id} className="flex gap-4 relative">
+                    <div key={n.id} className="flex gap-4 relative group">
                       {/* Timeline Line */}
                       {idx !== billingHistory.length - 1 && (
-                        <div className="absolute left-[7px] top-4 bottom-[-16px] w-px" style={{ background: 'color-mix(in srgb, var(--border) 80%, transparent)' }} />
+                        <div className="absolute left-[11px] top-4 bottom-[-24px] w-px" style={{ background: 'color-mix(in srgb, var(--border) 80%, transparent)' }} />
                       )}
                       
                       {/* Node Bullet / Avatar */}
-                      <div className="relative z-10 shrink-0 mt-[2px]">
+                      <div className="relative z-10 shrink-0 mt-[2px] w-6 h-6 rounded-md border-2 bg-card flex items-center justify-center"
+                        style={{ borderColor: getPlatformColor(n.service_name), background: 'var(--card)' }}>
                         {n.icon_url ? (
-                          <img src={n.icon_url} alt={n.service_name} className="w-6 h-6 rounded-md object-cover border" style={{ borderColor: 'var(--border)' }} />
+                          <img src={n.icon_url} alt={n.service_name} className="w-full h-full rounded-sm object-cover" />
                         ) : (
-                          <div className="w-6 h-6 rounded-md border-2 bg-card"
-                            style={{ 
-                              background: 'var(--card)', 
-                              borderColor: getPlatformColor(n.service_name)
-                            }} 
-                          />
+                          <span className="text-[8px] font-bold text-foreground">{n.service_name[0]?.toUpperCase()}</span>
                         )}
+                        {/* Status Dot */}
+                        <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full border-2" 
+                          style={{ background: n.statusColor, borderColor: 'var(--card)' }} 
+                          title={n.status}
+                        />
                       </div>
                       
                       {/* Content */}
-                      <div className="pb-5 min-w-0">
-                        <p className="text-[13px] font-medium leading-snug truncate" style={{ color: 'var(--foreground)' }}>
-                          {n.service_name} - {n.currency} {parseFloat(n.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                        </p>
-                        <p className="text-[11px] mt-0.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>
-                          paid on {formatMonthDay(n.paid_on)}
-                        </p>
+                      <div className="pb-6 min-w-0 flex-1 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold leading-snug truncate" style={{ color: 'var(--foreground)' }}>
+                            {n.service_name}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>
+                              {formatMonthDay(n.paid_on)}
+                            </span>
+                            <span className="text-[10px] text-slate-400">•</span>
+                            <span className="text-[11px] font-medium truncate" style={{ color: 'var(--muted-foreground)' }}>
+                              {n.channel}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <p className="text-[13px] font-bold shrink-0" style={{ color: 'var(--foreground)' }}>
+                            {n.currency} {parseFloat(n.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                          </p>
+                          <button className="text-muted-foreground hover:text-indigo-500 transition-colors opacity-0 group-hover:opacity-100" title="Download Receipt">
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )
