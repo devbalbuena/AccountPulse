@@ -7,8 +7,8 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import { computeNextBillingDate } from '@/lib/subscriptionUtils'
 import { Search, Pencil, Archive } from 'lucide-react'
 
-const thCls = "px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-left bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800"
-const tdCls = "px-4 py-3.5 text-sm text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60 align-middle"
+const thCls = "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left border-b"
+const tdCls = "px-4 py-3.5 text-sm border-b align-middle"
 
 function daysUntil(dateStr) {
   if (!dateStr) return null
@@ -77,7 +77,12 @@ export default function SubscriptionsIndex() {
 
   const totalMonthly = subs.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0)
 
-  if (loading) return <p className="text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  if (loading) return (
+    <div className="flex items-center justify-center h-32">
+      <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+        style={{ borderColor: 'var(--ap-accent)', borderTopColor: 'transparent' }} />
+    </div>
+  )
 
   const filteredSubs = subs.filter(sub => {
     const matchesSearch = sub.service_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -89,64 +94,70 @@ export default function SubscriptionsIndex() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Subscriptions</h2>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Subscriptions</h2>
           {subs.length > 0 && (
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Total monthly: <span className="font-semibold text-foreground">PHP {totalMonthly.toFixed(2)}</span>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
+              Total monthly: <span className="font-semibold" style={{ color: 'var(--ap-accent3)' }}>PHP {totalMonthly.toFixed(2)}</span>
             </p>
           )}
         </div>
         <div className="flex items-center gap-3">
           <Link to="/subscriptions/archived"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors">
+            className="inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
+            style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
             Archived
           </Link>
           <button onClick={() => { setEditingSub(null); setIsModalOpen(true); }}
-            className="px-4 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors">
+            className="px-4 py-2 text-sm rounded-xl text-white font-semibold transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, var(--ap-accent3), #34d399)' }}>
             + Add Subscription
           </button>
         </div>
       </div>
 
       {subs.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center justify-center py-20 px-4 text-center shadow-sm dark:shadow-none">
+        <div className="rounded-2xl border flex flex-col items-center justify-center py-20 px-4 text-center"
+          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
           <div className="text-5xl mb-4 opacity-10 select-none">◈</div>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">No subscriptions yet</p>
-          <Link to="/subscriptions/new" className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Add your first subscription →</Link>
+          <p className="font-medium" style={{ color: 'var(--muted-foreground)' }}>No subscriptions yet</p>
+          <button onClick={() => { setEditingSub(null); setIsModalOpen(true) }}
+            className="mt-2 text-sm hover:underline" style={{ color: 'var(--ap-accent)' }}>Add your first subscription →</button>
         </div>
       ) : (
         <>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
             <div className="relative w-full max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4" style={{ color: 'var(--muted-foreground)' }} />
               <input 
                 type="text" 
                 placeholder="Search by service..." 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-input rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 transition-colors"
+                style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
               />
             </div>
             <select 
               value={filterType}
               onChange={e => setFilterType(e.target.value)}
-              className="w-full sm:w-auto bg-background border border-input text-sm rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full sm:w-auto text-sm rounded-lg px-3 py-2 border focus:outline-none"
+              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
             >
               <option value="All">All Services</option>
             </select>
           </div>
 
-          <div className="bg-card text-card-foreground rounded-xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             <table className="w-full border-collapse">
             <thead>
-              <tr>
-                <th className={thCls}>Service</th>
-                <th className={thCls}>Billing Day</th>
-                <th className={thCls}>Next Bill</th>
-                <th className={thCls}>Status</th>
-                <th className={thCls}>Amount</th>
-                <th className={thCls}>Notes</th>
-                <th className={`${thCls} text-right`}>Actions</th>
+              <tr style={{ background: 'color-mix(in srgb, var(--muted) 50%, transparent)' }}>
+                <th className={thCls} style={{ color: 'var(--muted-foreground)', borderColor: 'var(--border)' }}>Service</th>
+                <th className={thCls} style={{ color: 'var(--muted-foreground)', borderColor: 'var(--border)' }}>Billing Day</th>
+                <th className={thCls} style={{ color: 'var(--muted-foreground)', borderColor: 'var(--border)' }}>Next Bill</th>
+                <th className={thCls} style={{ color: 'var(--muted-foreground)', borderColor: 'var(--border)' }}>Status</th>
+                <th className={thCls} style={{ color: 'var(--muted-foreground)', borderColor: 'var(--border)' }}>Amount</th>
+                <th className={thCls} style={{ color: 'var(--muted-foreground)', borderColor: 'var(--border)' }}>Notes</th>
+                <th className={`${thCls} text-right`} style={{ color: 'var(--muted-foreground)', borderColor: 'var(--border)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -154,20 +165,22 @@ export default function SubscriptionsIndex() {
                 const days = daysUntil(sub.next_billing_date)
                 const urgent = days !== null && days <= 3
                 return (
-                  <tr key={sub.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className={`${tdCls} font-medium text-slate-800 dark:text-slate-200`}>
+                  <tr key={sub.id} className="group transition-colors"
+                    onMouseEnter={e => e.currentTarget.style.background = 'color-mix(in srgb, var(--muted) 30%, transparent)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <td className={tdCls} style={{ borderColor: 'var(--border)', fontWeight: 500, color: 'var(--foreground)' }}>
                       <div className="flex items-center gap-2">
-                        {urgent && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 animate-pulse" />}
+                        {urgent && <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ background: '#ef4444' }} />}
                         {sub.service_name}
                       </div>
                     </td>
-                    <td className={`${tdCls} text-slate-500 dark:text-slate-400`}>Day {sub.billing_day}</td>
-                    <td className={`${tdCls} text-slate-500 dark:text-slate-400`}>{formatDate(sub.next_billing_date)}</td>
-                    <td className={tdCls}><DaysUntilBadge days={days} /></td>
-                    <td className={`${tdCls} font-semibold text-emerald-600 dark:text-emerald-400`}>
+                    <td className={tdCls} style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>Day {sub.billing_day}</td>
+                    <td className={tdCls} style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>{formatDate(sub.next_billing_date)}</td>
+                    <td className={tdCls} style={{ borderColor: 'var(--border)' }}><DaysUntilBadge days={days} /></td>
+                    <td className={tdCls} style={{ borderColor: 'var(--border)', fontWeight: 600, color: 'var(--ap-accent3)' }}>
                       {sub.currency} {parseFloat(sub.amount).toFixed(2)}
                     </td>
-                    <td className={`${tdCls} text-slate-400 dark:text-slate-500 text-xs max-w-[160px] truncate`}>
+                    <td className={`${tdCls} max-w-[160px] truncate`} style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)', fontSize: '12px' }}>
                       {sub.notes || '—'}
                     </td>
                     <td className={`${tdCls} text-right`}>

@@ -1,131 +1,310 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
-import { Sun, Moon, LogOut, User } from 'lucide-react'
+import {
+  Sun, Moon, LogOut, Bell, Search, Settings,
+  LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X
+} from 'lucide-react'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-      <path d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm6.39-2.908a.75.75 0 01.766.027l3.5 2.25a.75.75 0 010 1.262l-3.5 2.25A.75.75 0 018 12.25v-4.5a.75.75 0 01.39-.658z"/>
-    </svg>
-  )},
-  { to: '/accounts', label: 'Accounts', icon: (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-      <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z"/>
-    </svg>
-  )},
-  { to: '/subscriptions', label: 'Subscriptions', icon: (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-      <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd"/>
-    </svg>
-  )},
-  { to: '/notifications', label: 'Notifications', icon: (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-      <path fillRule="evenodd" d="M4 8a6 6 0 1112 0v2.041c0 .329.114.648.32.903l1.41 1.763A.75.75 0 0117.144 14H2.856a.75.75 0 01-.586-1.293l1.41-1.763A1.5 1.5 0 004 10.04V8zm6 10a2 2 0 002-2H8a2 2 0 002 2z" clipRule="evenodd"/>
-    </svg>
-  )},
+  {
+    to: '/dashboard', label: 'Dashboard',
+    icon: <LayoutGrid className="w-4.5 h-4.5 shrink-0" />
+  },
+  {
+    to: '/accounts', label: 'Accounts',
+    icon: <Users className="w-4.5 h-4.5 shrink-0" />
+  },
+  {
+    to: '/subscriptions', label: 'Subscriptions',
+    icon: <CreditCard className="w-4.5 h-4.5 shrink-0" />
+  },
+  {
+    to: '/reports', label: 'Reports',
+    icon: <BarChart2 className="w-4.5 h-4.5 shrink-0" />
+  },
 ]
+
+function timeAgo(ts) {
+  if (!ts) return ''
+  const diff = (Date.now() - new Date(ts)) / 1000
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
 
 export default function AppLayout() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState([])
+  const [collapsed, setCollapsed] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const notifRef = useRef(null)
+
+  async function loadNotifications() {
+    if (!user) return
+    const [{ count }, { data }] = await Promise.all([
+      supabase.from('notifications').select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id).eq('is_read', false),
+      supabase.from('notifications').select('*')
+        .eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
+    ])
+    setUnreadCount(count || 0)
+    setNotifications(data || [])
+  }
 
   useEffect(() => {
-    async function loadNotifications() {
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('is_read', false)
-      setUnreadCount(count || 0)
-    }
-    if (user) loadNotifications()
-    const interval = setInterval(() => { if (user) loadNotifications() }, 60000)
+    loadNotifications()
+    const interval = setInterval(loadNotifications, 60000)
     return () => clearInterval(interval)
   }, [user])
+
+  async function markAllRead() {
+    if (!user) return
+    await supabase.from('notifications').update({ is_read: true })
+      .eq('user_id', user.id).eq('is_read', false)
+    setUnreadCount(0)
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
     navigate('/login')
   }
 
+  // Close notif panel on outside click
+  useEffect(() => {
+    function handle(e) {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
+    }
+    if (notifOpen) document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [notifOpen])
+
+  const avatarLetter = user?.email?.[0]?.toUpperCase() || '?'
+  const sidebarW = collapsed ? 'w-16' : 'w-[200px]'
+
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 min-h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col px-3 py-5">
+    <div className="min-h-screen flex" style={{ background: 'var(--background)' }}>
+
+      {/* ── Sidebar ── */}
+      <aside
+        className={`${sidebarW} shrink-0 min-h-screen flex flex-col py-4 border-r transition-all duration-300 ease-in-out overflow-hidden`}
+        style={{ background: 'var(--sidebar)', borderColor: 'var(--border)' }}
+      >
         {/* Logo */}
-        <div className="px-2 mb-7">
-          <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Account<span className="text-indigo-500">Pulse</span>
-          </span>
+        <div className={`flex items-center gap-2.5 px-4 mb-7 ${collapsed ? 'justify-center' : ''}`}>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}>
+            <span className="text-white text-xs font-black">AP</span>
+          </div>
+          {!collapsed && (
+            <span className="text-sm font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
+              Account<span style={{ color: 'var(--ap-accent)' }}>Pulse</span>
+            </span>
+          )}
         </div>
 
         {/* Nav */}
-        <nav className="flex flex-col gap-0.5 flex-1">
+        <nav className="flex flex-col gap-0.5 flex-1 px-2">
           {NAV_ITEMS.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
+              title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative group
+                ${collapsed ? 'justify-center' : ''}
                 ${isActive
-                  ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
+                  ? 'text-white shadow-sm'
+                  : ''
                 }`
               }
+              style={({ isActive }) => isActive ? {
+                background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)',
+                boxShadow: '0 4px 12px color-mix(in srgb, var(--ap-accent) 30%, transparent)'
+              } : {}}
             >
-              {item.icon}
-              {item.label}
-              {item.label === 'Notifications' && unreadCount > 0 && (
-                <span className="ml-auto flex items-center justify-center h-4.5 min-w-[1.125rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
-                  {unreadCount}
-                </span>
+              {({ isActive }) => (
+                <>
+                  <span style={{ color: isActive ? 'white' : 'var(--muted-foreground)' }}
+                    className="group-hover:text-foreground transition-colors">
+                    {item.icon}
+                  </span>
+                  {!collapsed && (
+                    <span style={{ color: isActive ? 'white' : 'var(--muted-foreground)' }}
+                      className="group-hover:text-foreground transition-colors">
+                      {item.label}
+                    </span>
+                  )}
+                </>
               )}
             </NavLink>
           ))}
         </nav>
 
-        {/* Bottom section */}
-        <div className="mt-auto flex flex-col gap-3">
-          {unreadCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50">
-              <span className="text-red-500 text-xs">●</span>
-              <span className="text-xs font-semibold text-red-600 dark:text-red-400">
-                {unreadCount} token{unreadCount > 1 ? 's' : ''} expired
-              </span>
-            </div>
-          )}
+        {/* Bottom Controls */}
+        <div className="px-2 mt-4 flex flex-col gap-2">
+          {/* Theme toggle */}
+          <button
+            onClick={toggle}
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-muted ${collapsed ? 'justify-center' : ''}`}
+            style={{ color: 'var(--muted-foreground)' }}
+          >
+            {theme === 'dark' ? <Sun className="w-4.5 h-4.5 shrink-0" /> : <Moon className="w-4.5 h-4.5 shrink-0" />}
+            {!collapsed && <span>Theme</span>}
+          </button>
 
-          <div className="h-px bg-border/60 my-2" />
+          {/* Divider */}
+          <div className="h-px my-1" style={{ background: 'var(--border)' }} />
 
-          <div className="flex items-center justify-between px-2 pb-1">
-            <div className="flex items-center gap-2 overflow-hidden mr-2">
-              <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center shrink-0">
-                <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{user?.email}</p>
-            </div>
-            
-            <div className="flex items-center gap-1 shrink-0">
-              <button onClick={toggle} className="p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors" title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
-              <button onClick={handleLogout} className="p-2 rounded-md hover:bg-muted hover:text-destructive text-muted-foreground transition-colors" title="Sign out">
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          {/* Collapse toggle */}
+          <button
+            onClick={() => setCollapsed(c => !c)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-muted ${collapsed ? 'justify-center' : ''}`}
+            style={{ color: 'var(--muted-foreground)' }}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <ChevronRight className="w-4.5 h-4.5 shrink-0" /> : <ChevronLeft className="w-4.5 h-4.5 shrink-0" />}
+            {!collapsed && <span>Collapse</span>}
+          </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 p-8 overflow-y-auto">
-        <Outlet />
-      </main>
+      {/* ── Right Panel (Top Bar + Content) ── */}
+      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+
+        {/* Top Bar */}
+        <header className="h-14 shrink-0 flex items-center gap-4 px-6 border-b"
+          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+
+          {/* Search */}
+          <div className="flex-1 max-w-sm relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--muted-foreground)' }} />
+            <input
+              type="text"
+              placeholder="Search..."
+              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border focus:outline-none focus:ring-2 transition-colors"
+              style={{
+                background: 'var(--background)',
+                borderColor: 'var(--border)',
+                color: 'var(--foreground)',
+                '--tw-ring-color': 'var(--ap-accent)'
+              }}
+            />
+          </div>
+
+          <div className="flex items-center gap-1 ml-auto">
+            {/* Settings */}
+            <button className="p-2 rounded-lg transition-colors hover:bg-muted" style={{ color: 'var(--muted-foreground)' }} title="Settings">
+              <Settings className="w-4.5 h-4.5" />
+            </button>
+
+            {/* Notifications Bell */}
+            <button
+              onClick={() => setNotifOpen(o => !o)}
+              className="p-2 rounded-lg transition-colors hover:bg-muted relative"
+              style={{ color: 'var(--muted-foreground)' }}
+              title="Notifications"
+            >
+              <Bell className="w-4.5 h-4.5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
+                  style={{ background: 'var(--ap-accent)' }}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* User Avatar */}
+            <button
+              onClick={handleLogout}
+              title={`Signed in as ${user?.email} · Click to sign out`}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ml-1 transition-opacity hover:opacity-80"
+              style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}
+            >
+              {avatarLetter}
+            </button>
+          </div>
+        </header>
+
+        {/* Main content */}
+        <main className="flex-1 p-6 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+
+      {/* ── Slide-in Notifications Panel ── */}
+      {/* Backdrop */}
+      {notifOpen && (
+        <div
+          className="fixed inset-0 z-30"
+          style={{ background: 'rgba(0,0,0,0.2)' }}
+          onClick={() => setNotifOpen(false)}
+        />
+      )}
+      {/* Panel */}
+      <div
+        ref={notifRef}
+        className="fixed top-0 right-0 h-full w-80 z-40 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out"
+        style={{
+          background: 'var(--card)',
+          borderLeft: '1px solid var(--border)',
+          transform: notifOpen ? 'translateX(0)' : 'translateX(100%)'
+        }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Notifications</h3>
+            {unreadCount > 0 && (
+              <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{unreadCount} unread</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button onClick={markAllRead} className="text-[11px] font-medium px-2 py-1 rounded-md hover:bg-muted transition-colors"
+                style={{ color: 'var(--ap-accent)' }}>
+                Mark all read
+              </button>
+            )}
+            <button onClick={() => setNotifOpen(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+              style={{ color: 'var(--muted-foreground)' }}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full py-16 px-4 text-center">
+              <Bell className="w-10 h-10 mb-3" style={{ color: 'var(--border)' }} />
+              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>No notifications yet</p>
+            </div>
+          ) : (
+            <ul>
+              {notifications.map(n => (
+                <li key={n.id} className="px-5 py-3.5 border-b transition-colors hover:bg-muted/30"
+                  style={{ borderColor: 'var(--border)', opacity: n.is_read ? 0.6 : 1 }}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+                      style={{ background: n.is_read ? 'var(--border)' : 'var(--ap-accent)' }} />
+                    <div className="min-w-0">
+                      <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground)' }}>{n.message}</p>
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--muted-foreground)' }}>{timeAgo(n.created_at)}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
