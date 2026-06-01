@@ -231,49 +231,60 @@ export default function AccountsIndex() {
                       )}
                       
                       {timers.map(timer => {
-                        let statusBadge = { label: 'No Timer', bg: 'color-mix(in srgb, var(--muted) 20%, transparent)', text: 'var(--muted-foreground)' }
+                        const modelColor = timer.color || '#6366f1'
                         let progressPct = 0
-                        let progColor = 'var(--border)'
-                        
+                        let timerExpired = false
+                        let timerExpiring = false
+
                         if (timer?.next_due_at) {
                           const now = new Date()
                           const due = new Date(timer.next_due_at)
                           const diff = due - now
                           const totalMs = (timer.interval_hours || 0) * 3600000
                           progressPct = totalMs > 0 ? Math.max(0, Math.min(100, (diff / totalMs) * 100)) : 0
-                          
-                          if (diff <= 0) {
-                            statusBadge = { label: 'Expired', bg: 'color-mix(in srgb, #ef4444 20%, transparent)', text: '#ef4444' }
-                            progColor = '#ef4444'
-                          } else if (diff <= 86400000) { // < 24h
-                            statusBadge = { label: 'Expiring', bg: 'color-mix(in srgb, #f59e0b 20%, transparent)', text: '#f59e0b' }
-                            progColor = '#f59e0b'
-                          } else {
-                            statusBadge = { label: 'Active', bg: 'color-mix(in srgb, var(--ap-accent3) 20%, transparent)', text: 'var(--ap-accent3)' }
-                            progColor = progressPct > 20 ? 'var(--ap-accent3)' : '#f59e0b'
-                          }
+                          timerExpired = diff <= 0
+                          timerExpiring = !timerExpired && diff <= 86400000
                         }
 
+                        // Progress bar color: use model's own color normally, amber when expiring, red when expired
+                        const progColor = timerExpired ? '#ef4444' : timerExpiring ? '#f59e0b' : modelColor
+
                         return (
-                          <div key={timer.id} className="p-3 rounded-xl border flex flex-col gap-2" style={{ borderColor: 'color-mix(in srgb, var(--border) 60%, transparent)', background: 'color-mix(in srgb, var(--muted) 30%, transparent)' }}>
+                          <div key={timer.id} className="p-3 rounded-xl border flex flex-col gap-2"
+                            style={{
+                              borderColor: `color-mix(in srgb, ${modelColor} 20%, var(--border))`,
+                              background: `color-mix(in srgb, ${modelColor} 5%, var(--muted)/30%)`,
+                            }}>
                             <div className="flex items-center justify-between">
-                              <p className="text-xs font-semibold truncate pr-2" style={{ color: 'var(--foreground)' }}>{timer.model_name || 'Model'}</p>
-                              
+                              {/* Model name in its own color */}
+                              <p className="text-xs font-bold truncate pr-2" style={{ color: modelColor }}>
+                                {timer.model_name || 'Model'}
+                              </p>
+
                               <div className="flex items-center gap-2">
-                                <CountdownTimer 
-                                  nextDueAt={timer?.next_due_at} 
-                                  accountId={acc.id} platform={acc.platform} email={acc.email} userId={user.id}
-                                />
+                                {/* Countdown — colored text */}
+                                <span style={{ color: timerExpired ? '#ef4444' : timerExpiring ? '#f59e0b' : modelColor }}>
+                                  <CountdownTimer
+                                    nextDueAt={timer?.next_due_at}
+                                    accountId={acc.id} platform={acc.platform} email={acc.email} userId={user.id}
+                                    color={progColor}
+                                  />
+                                </span>
+                                {/* Refresh button — colored icon */}
                                 <button onClick={() => handleMarkRefreshed(timer.id, timer.interval_hours, acc.platform, acc.email)}
-                                  className="w-6 h-6 rounded-md flex items-center justify-center transition-colors hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-500"
+                                  className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
+                                  style={{ color: modelColor }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = `color-mix(in srgb, ${modelColor} 15%, transparent)` }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                                   title="Refresh token">
                                   <RotateCw className="w-3 h-3" />
                                 </button>
                               </div>
                             </div>
-                            
-                            {/* Progress Bar (inside card) */}
-                            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'color-mix(in srgb, var(--border) 80%, transparent)' }}>
+
+                            {/* Progress Bar in model's color */}
+                            <div className="w-full h-1.5 rounded-full overflow-hidden"
+                              style={{ background: `color-mix(in srgb, ${modelColor} 15%, var(--border))` }}>
                               <div className="h-full rounded-full transition-all duration-1000 ease-linear"
                                 style={{ width: `${progressPct}%`, background: progColor }} />
                             </div>
@@ -282,6 +293,7 @@ export default function AccountsIndex() {
                       })}
                     </div>
                   </div>
+
                 )
               })}
             </div>

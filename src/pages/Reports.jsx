@@ -52,7 +52,7 @@ function computeTimeLeft(timer) {
 
 export default function Reports() {
   const { user } = useAuth()
-  
+
   const [data, setData] = useState({
     subs: [],
     accounts: [],
@@ -67,7 +67,7 @@ export default function Reports() {
     if (!user) return
     setLoading(true)
     setError(null)
-    
+
     try {
       const [subsRes, accsRes, timersRes, notifsRes] = await Promise.all([
         supabase.from('subscriptions').select('*').is('deleted_at', null).eq('user_id', user.id),
@@ -112,12 +112,12 @@ export default function Reports() {
 
   // Calculate Metrics
   const { subs, accounts, timers, notifications } = data
-  
+
   // 1. Total Spend
   const totalSpend = subs.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0)
   const currencies = [...new Set(subs.map(s => s.currency))]
   const displayCurrency = currencies.length > 1 ? 'Mixed' : (currencies[0] || 'PHP')
-  
+
   // 2. Upcoming Renewals
   const upcomingCount = subs.filter(s => {
     const d = daysUntil(s.next_billing_date)
@@ -130,7 +130,7 @@ export default function Reports() {
     const name = s.service_name
     categoryMap[name] = (categoryMap[name] || 0) + parseFloat(s.amount || 0)
   })
-  
+
   const categoryData = Object.keys(categoryMap)
     .map(name => ({
       name,
@@ -160,7 +160,7 @@ export default function Reports() {
 
   return (
     <div className="pb-8 min-h-full -m-6 p-6 transition-colors duration-300 bg-[#f0f2ff] dark:bg-transparent">
-      
+
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
@@ -176,16 +176,16 @@ export default function Reports() {
       </div>
 
       <div className={`transition-all duration-700 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        
+
         {/* ── Top Row: KPI Metrics ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          
+
           {/* Card 1: Total Spend */}
           <div className="p-5 rounded-2xl border bg-[#ffffff] dark:bg-slate-800/20 border-[#e2e4f0] dark:border-slate-800 shadow-[0_2px_12px_rgba(124,58,237,0.08)] dark:shadow-none border-l-[3px] border-l-[#7c3aed] overflow-hidden relative">
             <p className="text-sm font-medium text-[#5a5a7a] dark:text-slate-400 mb-1">Total Monthly Spend</p>
             {loading ? <Skeleton className="h-8 w-32 mb-2" /> : (
               <h3 className="text-2xl font-bold text-[#0d0d1a] dark:text-slate-100 tracking-tight">
-                {displayCurrency} {totalSpend.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                {displayCurrency} {totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
             )}
           </div>
@@ -239,11 +239,11 @@ export default function Reports() {
 
         {/* ── Middle Row ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          
+
           {/* Top Expenses (Left 2/3) */}
           <div className="lg:col-span-2 p-6 rounded-2xl border bg-[#ffffff] dark:bg-slate-900/50 border-[#e2e4f0] dark:border-slate-800 shadow-[0_2px_12px_rgba(0,0,0,0.05)] dark:shadow-none flex flex-col">
             <h3 className="text-base font-bold text-[#0d0d1a] dark:text-slate-200 mb-5">Top Expenses</h3>
-            
+
             {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
@@ -271,7 +271,7 @@ export default function Reports() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-[#7c3aed] dark:text-slate-200">{item.currency} {parseFloat(item.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                      <p className="text-sm font-bold text-[#7c3aed] dark:text-slate-200">{item.currency} {parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                       <p className="text-[11px] text-[#5a5a7a] dark:text-slate-500">/ month</p>
                     </div>
                   </div>
@@ -283,7 +283,7 @@ export default function Reports() {
           {/* Donut Chart (Right 1/3) */}
           <div className="p-6 rounded-2xl border bg-[#ffffff] dark:bg-slate-900/50 border-[#e2e4f0] dark:border-slate-800 shadow-[0_2px_12px_rgba(0,0,0,0.05)] dark:shadow-none flex flex-col items-center justify-center min-h-[300px]">
             <h3 className="text-base font-bold text-[#0d0d1a] dark:text-slate-200 w-full mb-6 text-left">Spend by Category</h3>
-            
+
             {loading ? (
               <div className="flex flex-col items-center w-full">
                 <Skeleton className="w-40 h-40 rounded-full mb-8" />
@@ -301,7 +301,7 @@ export default function Reports() {
                     <div className="text-center">
                       <p className="text-[10px] font-semibold text-[#5a5a7a] dark:text-slate-500 uppercase tracking-widest">Total</p>
                       <p className="text-sm font-bold text-[#0d0d1a] dark:text-slate-200 leading-tight">
-                        {displayCurrency} {totalSpend > 1000 ? `${(totalSpend/1000).toFixed(1)}k` : totalSpend.toFixed(0)}
+                        {displayCurrency} {totalSpend > 1000 ? `${(totalSpend / 1000).toFixed(1)}k` : totalSpend.toFixed(0)}
                       </p>
                     </div>
                   </div>
@@ -325,11 +325,11 @@ export default function Reports() {
 
         {/* ── Bottom Row ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
+
           {/* Recent Token Activity */}
           <div className="p-6 rounded-2xl border bg-[#ffffff] dark:bg-slate-900/50 border-[#e2e4f0] dark:border-slate-800 shadow-[0_2px_12px_rgba(0,0,0,0.05)] dark:shadow-none">
             <h3 className="text-base font-bold text-[#0d0d1a] dark:text-slate-200 mb-5">Recent Token Activity</h3>
-            
+
             {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
@@ -361,7 +361,7 @@ export default function Reports() {
           {/* Accounts Overview */}
           <div className="p-6 rounded-2xl border bg-[#ffffff] dark:bg-slate-900/50 border-[#e2e4f0] dark:border-slate-800 shadow-[0_2px_12px_rgba(0,0,0,0.05)] dark:shadow-none flex flex-col max-h-[350px]">
             <h3 className="text-base font-bold text-[#0d0d1a] dark:text-slate-200 mb-5 shrink-0">Accounts Overview</h3>
-            
+
             {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
@@ -376,7 +376,7 @@ export default function Reports() {
                   const timer = timers.find(t => t.account_id === acc.id)
                   const status = computeTimerStatus(timer)
                   const timeLeft = computeTimeLeft(timer)
-                  
+
                   return (
                     <div key={acc.id} className={`flex items-center justify-between p-3 transition-colors hover:bg-[#f8f7ff] dark:hover:bg-slate-800/30 ${i !== accounts.length - 1 ? 'border-b border-[#f0f0f8] dark:border-slate-800/50' : ''}`}>
                       <div className="flex items-center gap-3 min-w-0 pr-4">
@@ -385,7 +385,7 @@ export default function Reports() {
                         </div>
                         <p className="text-sm font-medium text-[#0d0d1a] dark:text-slate-200 truncate">{acc.email}</p>
                       </div>
-                      
+
                       <div className="flex items-center gap-3 shrink-0">
                         {timer && <span className="text-xs font-semibold" style={{ color: status.color }}>{timeLeft}</span>}
                         <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ background: status.color }} title={status.label} />
