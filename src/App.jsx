@@ -12,6 +12,9 @@ import Reports from '@/pages/Reports'
 import Settings from '@/pages/Settings'
 import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
+import Features from '@/pages/marketing/Features'
+import Security from '@/pages/marketing/Security'
+import Support from '@/pages/marketing/Support'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -33,6 +36,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+      {/* Marketing routes */}
+      <Route path="/features" element={<Features />} />
+      <Route path="/security" element={<Security />} />
+      <Route path="/support" element={<Support />} />
 
       {/* Auth routes */}
       <Route element={<AuthLayout />}>

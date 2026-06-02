@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 
@@ -17,6 +17,12 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoaded(true), 100)
+    return () => clearTimeout(t)
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -55,19 +61,18 @@ export default function Login() {
             <span className="text-white font-bold text-[15px] tracking-tight">AccountPulse</span>
           </div>
 
-          {/* Decorative nav links */}
+          {/* Nav links */}
           <div className="flex items-center gap-5">
-            <span className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer transition-colors">Features</span>
-            <span className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer transition-colors">Pricing</span>
-            <span className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer transition-colors">Security</span>
-            <span className="text-xs border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white cursor-pointer transition-colors px-3 py-1.5 rounded-md">
+            <Link to="/features" className="text-xs text-slate-400 hover:text-slate-200 transition-colors">Features</Link>
+            <Link to="/security" className="text-xs text-slate-400 hover:text-slate-200 transition-colors">Security</Link>
+            <Link to="/support" className="text-xs border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-md">
               Support
-            </span>
+            </Link>
           </div>
         </div>
 
         {/* Main content */}
-        <div className="relative z-10 flex-1 flex flex-col justify-center px-12 xl:px-16">
+        <div className={`relative z-10 flex-1 flex flex-col justify-center px-12 xl:px-16 transition-all duration-700 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           {/* Version badge */}
           <div className="mb-8">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
@@ -93,9 +98,9 @@ export default function Login() {
           {/* Stats row */}
           <div className="flex items-center gap-8">
             {[
-              { value: '2.4ms', label: 'LATENCY' },
-              { value: '99.9%', label: 'UPTIME' },
-              { value: '256-bit', label: 'AES SECURE' },
+              { value: 'Real-time', label: 'TOKEN TIMERS' },
+              { value: 'Auto-detect', label: 'BILLING CYCLES' },
+              { value: 'Encrypted', label: 'DATA SECURITY' },
             ].map(stat => (
               <div key={stat.label}>
                 <p className="text-white font-extrabold text-lg leading-tight">{stat.value}</p>
@@ -114,7 +119,7 @@ export default function Login() {
       {/* ── RIGHT PANEL: Form ── */}
       <div className="flex-1 md:w-[45%] flex items-center justify-center px-6 py-12
         bg-white dark:bg-[#0f1117] transition-colors duration-300">
-        <div className="w-full max-w-[380px]">
+        <div className={`w-full max-w-[380px] transition-all duration-700 delay-150 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
 
           {/* Mobile logo */}
           <div className="flex md:hidden items-center gap-2 mb-8 justify-center">
