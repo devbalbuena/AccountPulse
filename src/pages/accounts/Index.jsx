@@ -189,7 +189,7 @@ export default function AccountsIndex() {
                 className="mt-2 text-sm hover:underline" style={{ color: 'var(--ap-accent)' }}>Add a new account →</button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredAccounts.map(acc => {
                 const timers = acc.token_timers?.slice(0, 2) || []
                 const color = getPlatformColor(acc.platform)
@@ -301,7 +301,7 @@ export default function AccountsIndex() {
         </div>
 
         {/* Right Side: Activity Feed Panel */}
-        <div className="w-full lg:w-[280px] shrink-0 sticky top-4 rounded-2xl flex flex-col"
+        <div className="w-full lg:w-[280px] shrink-0 lg:sticky lg:top-4 rounded-2xl flex flex-col"
           style={{ background: 'var(--card)', maxHeight: 'calc(100vh - 7rem)', border: '1px solid var(--border)' }}>
           <div className="px-5 py-3.5 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
             <h3 className="text-[15px] font-bold" style={{ color: 'var(--foreground)' }}>Activity Feed</h3>

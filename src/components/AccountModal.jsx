@@ -255,7 +255,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg overflow-y-auto max-h-[90vh]">
+      <DialogContent className="w-[95vw] sm:max-w-lg overflow-y-auto max-h-[90vh] p-4 sm:p-6 rounded-2xl">
         <DialogHeader>
           <DialogTitle>{account ? 'Edit Account' : 'Add Account'}</DialogTitle>
           <DialogDescription>

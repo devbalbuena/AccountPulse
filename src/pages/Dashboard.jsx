@@ -195,12 +195,12 @@ export default function Dashboard() {
     <div className="space-y-6">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Dashboard</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>Welcome back, {user?.email?.split('@')[0]}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setIsAccountModalOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 hover:shadow-md"
             style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}>
@@ -216,7 +216,7 @@ export default function Dashboard() {
 
       <div className={`transition-all duration-700 space-y-6 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
       {/* ── Row 1: Stat Cards ── */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="Total Accounts" value={totalAccounts}
           icon={<Layers className="w-4.5 h-4.5" />}
           accent="var(--ap-accent)" sparkColor="var(--ap-accent)" />

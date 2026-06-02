@@ -45,8 +45,16 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const notifRef = useRef(null)
   const profileRef = useRef(null)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   async function loadNotifications() {
     if (!user) return
@@ -103,9 +111,9 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--background)' }}>
 
-      {/* ── Sidebar ── */}
+      {/* ── Sidebar (Desktop Only) ── */}
       <aside
-        className={`${sidebarW} fixed inset-y-0 left-0 z-20 flex flex-col py-4 border-r transition-all duration-300 ease-in-out`}
+        className={`hidden md:flex ${sidebarW} fixed inset-y-0 left-0 z-20 flex-col py-4 border-r transition-all duration-300 ease-in-out`}
         style={{ background: 'var(--sidebar)', borderColor: 'var(--border)' }}
       >
         {/* Logo */}
@@ -190,16 +198,16 @@ export default function AppLayout() {
 
       {/* ── Right Panel (Top Bar + Content) ── */}
       <div 
-        className="flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ease-in-out"
-        style={{ marginLeft: collapsed ? '64px' : '200px' }}
+        className="flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ease-in-out relative pb-16 md:pb-0"
+        style={{ marginLeft: isMobile ? '0px' : collapsed ? '64px' : '200px' }}
       >
 
         {/* Top Bar */}
-        <header className="h-14 shrink-0 flex items-center gap-4 px-6 border-b"
+        <header className="h-14 shrink-0 flex items-center gap-4 px-4 md:px-6 border-b"
           style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
 
-          {/* Search */}
-          <div className="flex-1 max-w-sm relative">
+          {/* Search (Desktop) */}
+          <div className="hidden md:block flex-1 max-w-sm relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--muted-foreground)' }} />
             <input
               type="text"
@@ -214,7 +222,31 @@ export default function AppLayout() {
             />
           </div>
 
-          <div className="flex items-center gap-1 ml-auto">
+          {/* Search (Mobile Overlay) */}
+          {isMobile && mobileSearchOpen && (
+            <div className="absolute inset-y-0 left-0 right-0 z-50 flex items-center px-4 gap-2"
+              style={{ background: 'var(--card)' }}>
+              <Search className="w-4 h-4 shrink-0" style={{ color: 'var(--muted-foreground)' }} />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search..."
+                className="flex-1 bg-transparent border-none focus:outline-none text-sm"
+                style={{ color: 'var(--foreground)' }}
+              />
+              <button onClick={() => setMobileSearchOpen(false)} className="p-1.5">
+                <X className="w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 ml-auto">
+            {/* Search Icon (Mobile) */}
+            {isMobile && !mobileSearchOpen && (
+              <button onClick={() => setMobileSearchOpen(true)} className="p-2 rounded-lg hover:bg-muted">
+                <Search className="w-4.5 h-4.5" style={{ color: 'var(--muted-foreground)' }} />
+              </button>
+            )}
 
             {/* Notifications Bell */}
             <button
@@ -296,10 +328,67 @@ export default function AppLayout() {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar">
           <Outlet />
         </main>
       </div>
+
+      {/* ── Mobile Bottom Navigation Bar ── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t flex items-center justify-around pb-safe pt-1 px-1 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] transition-colors duration-300"
+        style={{ background: 'var(--card)', borderColor: 'var(--border)', height: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+        
+        {/* Dashboard */}
+        <NavLink to="/dashboard" className="flex flex-col items-center justify-center w-16 h-12 gap-1 group">
+          {({ isActive }) => (
+            <>
+              <LayoutGrid className={`w-5 h-5 transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground group-hover:text-foreground'}`} 
+                style={{ color: isActive ? 'var(--ap-accent)' : undefined }} />
+              <span className={`text-[10px] font-semibold transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground'}`}
+                style={{ color: isActive ? 'var(--ap-accent)' : undefined }}>Dashboard</span>
+            </>
+          )}
+        </NavLink>
+
+        {/* Accounts */}
+        <NavLink to="/accounts" className="flex flex-col items-center justify-center w-16 h-12 gap-1 group">
+          {({ isActive }) => (
+            <>
+              <Users className={`w-5 h-5 transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground group-hover:text-foreground'}`} 
+                style={{ color: isActive ? 'var(--ap-accent)' : undefined }} />
+              <span className={`text-[10px] font-semibold transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground'}`}
+                style={{ color: isActive ? 'var(--ap-accent)' : undefined }}>Accounts</span>
+            </>
+          )}
+        </NavLink>
+
+        {/* Subscriptions */}
+        <NavLink to="/subscriptions" className="flex flex-col items-center justify-center w-16 h-12 gap-1 group">
+          {({ isActive }) => (
+            <>
+              <CreditCard className={`w-5 h-5 transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground group-hover:text-foreground'}`} 
+                style={{ color: isActive ? 'var(--ap-accent)' : undefined }} />
+              <span className={`text-[10px] font-semibold transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground'}`}
+                style={{ color: isActive ? 'var(--ap-accent)' : undefined }}>Subs</span>
+            </>
+          )}
+        </NavLink>
+
+        {/* Notifications (Button, not NavLink) */}
+        <button onClick={() => setNotifOpen(true)} className="flex flex-col items-center justify-center w-16 h-12 gap-1 group relative">
+          <div className="relative">
+            <Bell className={`w-5 h-5 transition-colors ${notifOpen ? 'text-ap-accent' : 'text-muted-foreground group-hover:text-foreground'}`}
+              style={{ color: notifOpen ? 'var(--ap-accent)' : undefined }} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full text-white text-[8px] font-bold flex items-center justify-center"
+                style={{ background: 'var(--ap-accent)' }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </div>
+          <span className={`text-[10px] font-semibold transition-colors ${notifOpen ? 'text-ap-accent' : 'text-muted-foreground'}`}
+            style={{ color: notifOpen ? 'var(--ap-accent)' : undefined }}>Notifs</span>
+        </button>
+      </nav>
 
       {/* ── Slide-in Notifications Panel ── */}
       {/* Backdrop */}
