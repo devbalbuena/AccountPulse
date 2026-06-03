@@ -38,7 +38,7 @@ export default function Login() {
       {/* ── LEFT PANEL: Branding ── */}
       <div
         className="hidden md:flex md:w-[55%] flex-col relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #0d1117 60%, #1a1f35 100%)' }}
+        style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #0d1117 60%, #1a1f35 100%)' }}
       >
         {/* Subtle grid overlay */}
         <div className="absolute inset-0 opacity-[0.04]"
@@ -48,14 +48,14 @@ export default function Login() {
         <div className="absolute top-[-80px] left-[-80px] w-[400px] h-[400px] rounded-full opacity-10"
           style={{ background: 'radial-gradient(circle, #06b6d4, transparent 70%)' }} />
         <div className="absolute bottom-[-100px] right-[-60px] w-[350px] h-[350px] rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #a855f7, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(circle, #2563eb, transparent 70%)' }} />
 
         {/* Top nav row */}
         <div className="relative z-10 flex items-center justify-between px-10 pt-8">
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
+              style={{ background: 'linear-gradient(135deg, #2563eb, #2563eb)' }}>
               <span className="text-white font-extrabold text-xs tracking-tight">AP</span>
             </div>
             <span className="text-white font-bold text-[15px] tracking-tight">AccountPulse</span>
@@ -124,7 +124,7 @@ export default function Login() {
           {/* Mobile logo */}
           <div className="flex md:hidden items-center gap-2 mb-8 justify-center">
             <div className="w-8 h-8 rounded-[8px] flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
+              style={{ background: 'linear-gradient(135deg, #2563eb, #2563eb)' }}>
               <span className="text-white font-extrabold text-[11px]">AP</span>
             </div>
             <span className="font-bold text-[14px] text-slate-900 dark:text-white">AccountPulse</span>

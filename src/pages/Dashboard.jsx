@@ -67,7 +67,7 @@ function StatCard({ title, value, subtitle, icon, accent, sparkColor }) {
 }
 
 /* ─── SVG Donut Chart ─── */
-const CHART_COLORS = ['#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+const CHART_COLORS = ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
 function DonutChart({ data }) {
   if (!data || data.length === 0) return (

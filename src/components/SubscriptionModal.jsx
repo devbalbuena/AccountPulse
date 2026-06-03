@@ -5,6 +5,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 const CURRENCIES = ['PHP', 'USD', 'EUR', 'GBP', 'SGD', 'JPY']
 
+const CATEGORY_COLORS = {
+  'Entertainment': '#ec4899',
+  'Productivity': '#3b82f6',
+  'Storage': '#06b6d4',
+  'Dev Tools': '#a855f7',
+  'Design': '#f97316',
+  'Security': '#ef4444',
+  'Finance': '#10b981',
+  'Health': '#34d399',
+  'Education': '#f59e0b',
+  'Other': 'var(--muted)'
+}
+const CATEGORIES = Object.keys(CATEGORY_COLORS)
+
 const inputCls = "w-full px-3.5 py-2.5 rounded-lg text-sm bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
 const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5"
 
@@ -36,7 +50,9 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
     billing_interval: 'monthly',
     custom_interval_days: '',
     amount: '', 
-    currency: 'PHP', 
+    currency: 'PHP',
+    payment_method: '',
+    category: '', 
     notes: '' 
   })
   const [iconFile, setIconFile] = useState(null)
@@ -56,6 +72,8 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
           custom_interval_days: subscription.custom_interval_days || '',
           amount: subscription.amount,
           currency: subscription.currency,
+          payment_method: subscription.payment_method || '',
+          category: subscription.category || '',
           notes: subscription.notes || ''
         })
       } else {
@@ -67,7 +85,9 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
           billing_interval: 'monthly',
           custom_interval_days: '',
           amount: '', 
-          currency: 'PHP', 
+          currency: 'PHP',
+          payment_method: '',
+          category: '', 
           notes: '' 
         })
       }
@@ -96,7 +116,9 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
       billing_interval: form.billing_interval,
       custom_interval_days: form.billing_interval === 'custom' ? parseInt(form.custom_interval_days) : null,
       amount: parseFloat(form.amount), 
-      currency: form.currency, 
+      currency: form.currency,
+      payment_method: form.payment_method || null,
+      category: form.category || null, 
       notes: form.notes || null
     }
 
@@ -202,6 +224,32 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
                 {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Category <span className="text-slate-400">(optional)</span></label>
+            <div className="flex flex-wrap gap-2 mt-1 mb-2">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, category: f.category === cat ? '' : cat }))}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${form.category === cat ? 'text-white' : 'text-muted-foreground hover:bg-muted'}`}
+                  style={{ 
+                    background: form.category === cat ? CATEGORY_COLORS[cat] : 'transparent',
+                    borderColor: form.category === cat ? CATEGORY_COLORS[cat] : 'var(--border)'
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Payment Method <span className="text-slate-400">(optional)</span></label>
+            <input type="text" className={inputCls} placeholder="e.g. Visa ...1234, PayPal, GCash"
+              value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })} />
           </div>
 
           <div>

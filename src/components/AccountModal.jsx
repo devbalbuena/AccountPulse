@@ -9,7 +9,7 @@ const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5"
 
 // 8 preset colors for model color picker
 const PRESET_COLORS = [
-  '#6366f1', // indigo (default)
+  '#2563eb', // indigo (default)
   '#06b6d4', // cyan
   '#10b981', // emerald
   '#f59e0b', // amber
@@ -41,7 +41,7 @@ function emptyTimer() {
   return {
     id: null,
     model_name: 'Model',
-    color: '#6366f1',
+    color: '#2563eb',
     interval_days: '',
     interval_hours: '',
     // originalIntervalHours tracks what was in the DB on open — used to detect changes
@@ -139,7 +139,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
           return {
             id: t.id,
             model_name: t.model_name || 'Model',
-            color: t.color || '#6366f1',
+            color: t.color || '#2563eb',
             // Displayed as D/H split for UX
             interval_days: Math.floor(totalHours / 24) || '',
             interval_hours: totalHours % 24 || '',
@@ -213,7 +213,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
         const timerData = {
           account_id: accId,
           model_name: t.model_name,
-          color: t.color || '#6366f1',
+          color: t.color || '#2563eb',
           interval_hours: newTotalHours,
           next_due_at: nextDue,
         }
@@ -324,7 +324,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
               </p>
               {timers.length < 2 && (
                 <button type="button" onClick={() => setTimers(t => [...t, emptyTimer()])}
-                  className="flex items-center gap-1 text-[11px] font-bold text-indigo-500 hover:text-indigo-400 transition-colors">
+                  className="flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-400 transition-colors">
                   <Plus className="w-3 h-3" /> Add Model
                 </button>
               )}
@@ -345,7 +345,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
                   <label className={labelCls}>Model Name</label>
                   <div className="flex items-center gap-2">
                     <ColorPicker
-                      color={t.color || '#6366f1'}
+                      color={t.color || '#2563eb'}
                       onChange={c => updateTimer(idx, 'color', c)}
                     />
                     <input type="text" className={`${inputCls} flex-1`} placeholder="e.g. Claude 3.5 Sonnet"
@@ -421,7 +421,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               {loading ? 'Saving…' : 'Save'}
             </button>
           </div>

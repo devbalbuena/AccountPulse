@@ -21,7 +21,7 @@ function CopyButton({ text, tooltip, className }) {
   )
 }
 
-const PALETTE = ['#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6']
+const PALETTE = ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6']
 function getPlatformColor(name) {
   if (!name) return PALETTE[0]
   let sum = 0
@@ -283,7 +283,7 @@ export default function AccountsIndex() {
                       )}
                       
                       {timers.map(timer => {
-                        const modelColor = timer.color || '#6366f1'
+                        const modelColor = timer.color || '#2563eb'
                         let progressPct = 0
                         let timerExpired = false
                         let timerExpiring = false

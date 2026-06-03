@@ -20,7 +20,7 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return (
     <div style={{ background: '#0f1117', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#6366f1', fontSize: '14px' }}>Loading...</div>
+      <div style={{ color: '#2563eb', fontSize: '14px' }}>Loading...</div>
     </div>
   )
   return user ? children : <Navigate to="/login" replace />

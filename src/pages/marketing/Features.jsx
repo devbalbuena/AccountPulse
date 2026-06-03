@@ -20,14 +20,14 @@ export default function Features() {
       <div className="absolute top-[-100px] left-[-100px] w-[500px] h-[500px] rounded-full opacity-10"
         style={{ background: 'radial-gradient(circle, #06b6d4, transparent 70%)' }} />
       <div className="absolute bottom-[-100px] right-[-100px] w-[400px] h-[400px] rounded-full opacity-10"
-        style={{ background: 'radial-gradient(circle, #a855f7, transparent 70%)' }} />
+        style={{ background: 'radial-gradient(circle, #2563eb, transparent 70%)' }} />
 
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between px-6 md:px-10 py-6">
         {/* Logo */}
         <Link to="/login" className="flex items-center gap-3 group">
           <div className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
+            style={{ background: 'linear-gradient(135deg, #2563eb, #2563eb)' }}>
             <span className="text-white font-extrabold text-xs tracking-tight">AP</span>
           </div>
           <span className="text-white font-bold text-[15px] tracking-tight">AccountPulse</span>
@@ -64,7 +64,7 @@ export default function Features() {
               desc: 'Track when your API tokens expire with live countdown clocks. Never get locked out again.' 
             },
             { 
-              icon: <CreditCard className="w-5 h-5 text-indigo-400" />, 
+              icon: <CreditCard className="w-5 h-5 text-blue-400" />, 
               title: 'Subscription Tracker', 
               desc: 'Monitor all your paid services with billing dates, amounts, and renewal alerts.' 
             },

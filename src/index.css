@@ -51,7 +51,7 @@
     --border-color: #e5e5f0;
     --text-primary: #0a0a1a;
     --text-muted: #6b6b8a;
-    --ap-accent: #7c3aed;
+    --ap-accent: #2563eb;
     --ap-accent2: #0891b2;
     --ap-accent3: #059669;
 
@@ -62,27 +62,27 @@
     --card-foreground: #0a0a1a;
     --popover: #ffffff;
     --popover-foreground: #0a0a1a;
-    --primary: #7c3aed;
+    --primary: #2563eb;
     --primary-foreground: #ffffff;
-    --secondary: #ede9fe;
-    --secondary-foreground: #4c1d95;
-    --muted: #f0eeff;
+    --secondary: #eff6ff;
+    --secondary-foreground: #1e3a8a;
+    --muted: #eff6ff;
     --muted-foreground: #6b6b8a;
-    --accent: #ede9fe;
-    --accent-foreground: #4c1d95;
+    --accent: #eff6ff;
+    --accent-foreground: #1e3a8a;
     --destructive: #dc2626;
     --border: #e5e5f0;
     --input: #e5e5f0;
-    --ring: #7c3aed;
+    --ring: #2563eb;
     --radius: 0.75rem;
     --sidebar: #ffffff;
     --sidebar-foreground: #0a0a1a;
-    --sidebar-primary: #7c3aed;
+    --sidebar-primary: #2563eb;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #f0eeff;
-    --sidebar-accent-foreground: #4c1d95;
+    --sidebar-accent: #eff6ff;
+    --sidebar-accent-foreground: #1e3a8a;
     --sidebar-border: #e5e5f0;
-    --sidebar-ring: #7c3aed;
+    --sidebar-ring: #2563eb;
 }
 
 .dark {
@@ -93,7 +93,7 @@
     --border-color: #1e1e30;
     --text-primary: #f0f0ff;
     --text-muted: #6b6b8a;
-    --ap-accent: #a855f7;
+    --ap-accent: #3b82f6;
     --ap-accent2: #06b6d4;
     --ap-accent3: #10b981;
 
@@ -104,26 +104,26 @@
     --card-foreground: #f0f0ff;
     --popover: #13131f;
     --popover-foreground: #f0f0ff;
-    --primary: #a855f7;
+    --primary: #3b82f6;
     --primary-foreground: #ffffff;
-    --secondary: #1e1e30;
+    --secondary: #1e3a8a;
     --secondary-foreground: #f0f0ff;
-    --muted: #1e1e30;
+    --muted: #1e3a8a;
     --muted-foreground: #6b6b8a;
-    --accent: #1e1e30;
+    --accent: #1e3a8a;
     --accent-foreground: #f0f0ff;
     --destructive: #ef4444;
     --border: #1e1e30;
     --input: #1e1e30;
-    --ring: #a855f7;
+    --ring: #3b82f6;
     --sidebar: #0f0f1a;
     --sidebar-foreground: #f0f0ff;
-    --sidebar-primary: #a855f7;
+    --sidebar-primary: #3b82f6;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #1e1e30;
+    --sidebar-accent: #1e3a8a;
     --sidebar-accent-foreground: #f0f0ff;
     --sidebar-border: #1e1e30;
-    --sidebar-ring: #a855f7;
+    --sidebar-ring: #3b82f6;
 }
 
 @layer base {
@@ -136,4 +136,10 @@
   html {
     @apply font-sans;
     }
+}
+
+@keyframes barPulse {
+  0% { opacity: 1; box-shadow: inherit; }
+  50% { opacity: 0.85; box-shadow: 0 0 12px currentColor; }
+  100% { opacity: 1; box-shadow: inherit; }
 }

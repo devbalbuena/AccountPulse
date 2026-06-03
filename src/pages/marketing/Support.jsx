@@ -50,7 +50,7 @@ export default function Support() {
         {/* Logo */}
         <Link to="/login" className="flex items-center gap-3 group">
           <div className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
+            style={{ background: 'linear-gradient(135deg, #2563eb, #2563eb)' }}>
             <span className="text-white font-extrabold text-xs tracking-tight">AP</span>
           </div>
           <span className="text-white font-bold text-[15px] tracking-tight">AccountPulse</span>

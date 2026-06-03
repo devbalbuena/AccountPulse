@@ -89,7 +89,7 @@ function AppearanceTab() {
         >
           {theme === 'dark'
             ? <><Sun className="w-4 h-4 text-amber-400" /> Light Mode</>
-            : <><Moon className="w-4 h-4 text-indigo-400" /> Dark Mode</>
+            : <><Moon className="w-4 h-4 text-blue-400" /> Dark Mode</>
           }
         </button>
       </div>
@@ -97,8 +97,8 @@ function AppearanceTab() {
       {/* Theme Previews */}
       <div className="grid grid-cols-2 gap-4">
         {[
-          { label: 'Light', bg: '#ffffff', fg: '#0f172a', accent: '#6366f1', active: theme === 'light' },
-          { label: 'Dark',  bg: '#111827', fg: '#f1f5f9', accent: '#a855f7', active: theme === 'dark'  },
+          { label: 'Light', bg: '#ffffff', fg: '#0f172a', accent: '#2563eb', active: theme === 'light' },
+          { label: 'Dark',  bg: '#111827', fg: '#f1f5f9', accent: '#2563eb', active: theme === 'dark'  },
         ].map(t => (
           <button
             key={t.label}
