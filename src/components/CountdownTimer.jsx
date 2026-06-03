@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function CountdownTimer({ nextDueAt, accountId, platform, email, userId, large = false }) {
+export default function CountdownTimer({ nextDueAt, accountId, platform, email, userId, modelName = 'Model', large = false }) {
   const [timeLeft, setTimeLeft] = useState('')
   const [status, setStatus] = useState('ok')
   const lastNotifiedDueAt = useRef(null)
@@ -26,7 +26,7 @@ export default function CountdownTimer({ nextDueAt, accountId, platform, email, 
           lastNotifiedDueAt.current = nextDueAt
           supabase.from('notifications').insert({
             user_id: userId,
-            message: `${platform} account ${email} token has expired and needs refresh`,
+            message: `${email} (${modelName}) token has expired`,
             is_read: false
           }).then(() => {}) // silently catch
         }

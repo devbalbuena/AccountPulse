@@ -241,7 +241,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
     }
 
     setLoading(false)
-    onSave(form.platform)
+    onSave(form.email)
     onClose()
   }
 

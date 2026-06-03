@@ -4,7 +4,22 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import CountdownTimer from '@/components/CountdownTimer'
 import AccountModal from '@/components/AccountModal'
-import { Search, Pencil, Trash2, RotateCw, Eraser, MoreVertical, Archive } from 'lucide-react'
+import { Search, Pencil, Trash2, RotateCw, Eraser, MoreVertical, Archive, Copy, Check } from 'lucide-react'
+
+function CopyButton({ text, tooltip, className }) {
+  const [copied, setCopied] = useState(false)
+  function handleCopy(e) {
+    e.preventDefault(); e.stopPropagation();
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <button onClick={handleCopy} title={tooltip} className={`transition-colors hover:text-foreground text-muted-foreground ${className}`}>
+      {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  )
+}
 
 const PALETTE = ['#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6']
 function getPlatformColor(name) {
@@ -70,6 +85,7 @@ export default function AccountsIndex() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('All')
+  const [sortBy, setSortBy] = useState('soonest')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState(null)
 
@@ -97,11 +113,11 @@ export default function AccountsIndex() {
     load()
   }
 
-  async function handleMarkRefreshed(timerId, intervalHours, platform, email) {
+  async function handleMarkRefreshed(timerId, intervalHours, email, modelName) {
     const now = new Date()
     const nextDue = new Date(now.getTime() + intervalHours * 3600000)
     await supabase.from('token_timers').update({ last_refreshed_at: now.toISOString(), next_due_at: nextDue.toISOString() }).eq('id', timerId)
-    await insertNotif(`${platform} account refreshed`)
+    await insertNotif(`${email} (${modelName}) token refreshed`)
     load()
   }
 
@@ -116,9 +132,9 @@ export default function AccountsIndex() {
     }
   }
 
-  // Called by AccountModal after save - we pass platform + isEdit to generate the right notification
-  async function handleModalSave(platform, isEdit) {
-    await insertNotif(isEdit ? `${platform} account updated` : `${platform} account added`)
+  // Called by AccountModal after save - we pass email + isEdit to generate the right notification
+  async function handleModalSave(email, isEdit) {
+    await insertNotif(isEdit ? `${email} account updated` : `${email} account added`)
     load()
   }
 
@@ -134,6 +150,26 @@ export default function AccountsIndex() {
     if (!matchesSearch) return false
     if (filterType !== 'All') return acc.type === filterType
     return true
+  }).sort((a, b) => {
+    if (sortBy === 'soonest' || sortBy === 'latest') {
+      const aTime = a.token_timers?.[0]?.next_due_at ? new Date(a.token_timers[0].next_due_at).getTime() : Infinity
+      const bTime = b.token_timers?.[0]?.next_due_at ? new Date(b.token_timers[0].next_due_at).getTime() : Infinity
+      if (aTime === bTime) return 0
+      return sortBy === 'soonest' ? aTime - bTime : bTime - aTime
+    }
+    if (sortBy === 'recent') {
+      return new Date(b.created_at) - new Date(a.created_at)
+    }
+    if (sortBy === 'oldest') {
+      return new Date(a.created_at) - new Date(b.created_at)
+    }
+    if (sortBy === 'asc') {
+      return a.email.localeCompare(b.email)
+    }
+    if (sortBy === 'desc') {
+      return b.email.localeCompare(a.email)
+    }
+    return 0
   })
 
   const types = ['All', ...new Set(accounts.map(a => a.type))]
@@ -162,6 +198,19 @@ export default function AccountsIndex() {
             style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
           >
             {types.map(t => <option key={t} value={t}>{t === 'All' ? 'All Types' : t}</option>)}
+          </select>
+          <select 
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            className="text-sm rounded-lg px-3 py-2 border focus:outline-none"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+          >
+            <option value="soonest">Sort: Soonest</option>
+            <option value="latest">Latest to Expire</option>
+            <option value="recent">Recently Added</option>
+            <option value="oldest">Oldest First</option>
+            <option value="asc">Alphabetical (A-Z)</option>
+            <option value="desc">Alphabetical (Z-A)</option>
           </select>
           <Link to="/accounts/archived"
             className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
@@ -201,7 +250,7 @@ export default function AccountsIndex() {
                     style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
                   >
                     {/* Top Row with Platform, Subtitle and CardMenu */}
-                    <div className="flex items-start justify-between mb-5">
+                    <div className="flex items-start justify-between mb-5 group/header">
                       <div className="flex items-start gap-3.5 min-w-0 pr-4">
                         {acc.icon_url ? (
                           <img src={acc.icon_url} alt={acc.platform} className="w-[42px] h-[42px] rounded-[10px] object-cover shrink-0" />
@@ -212,11 +261,14 @@ export default function AccountsIndex() {
                         )}
                         <div className="min-w-0">
                           <p className="font-semibold truncate text-[15px] leading-tight" style={{ color: 'var(--foreground)' }}>{acc.platform}</p>
-                          <p className="text-xs truncate mt-1" style={{ color: 'var(--muted-foreground)' }}>{acc.email}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{acc.email}</p>
+                            <CopyButton text={acc.email} tooltip="Copy email" className="opacity-0 group-hover/header:opacity-100" />
+                          </div>
                           <p className="text-[11px] truncate mt-0.5" style={{ color: 'var(--muted-foreground)', opacity: 0.8 }}>{acc.type}</p>
                         </div>
                       </div>
-                      <div className="shrink-0 -mr-2 -mt-1">
+                      <div className="shrink-0 -mr-2 relative top-[-2px]">
                         <CardMenu 
                           onEdit={() => { setEditingAccount(acc); setIsModalOpen(true); }}
                           onArchive={() => handleArchive(acc)}
@@ -255,23 +307,25 @@ export default function AccountsIndex() {
                               borderColor: `color-mix(in srgb, ${modelColor} 20%, var(--border))`,
                               background: `color-mix(in srgb, ${modelColor} 5%, var(--muted)/30%)`,
                             }}>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between group/model">
                               {/* Model name in its own color */}
-                              <p className="text-xs font-bold truncate pr-2" style={{ color: modelColor }}>
-                                {timer.model_name || 'Model'}
-                              </p>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <p className="text-xs font-bold truncate pr-2" style={{ color: modelColor }}>
+                                  {timer.model_name || 'Model'}
+                                </p>
+                              </div>
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 shrink-0">
                                 {/* Countdown — colored text */}
                                 <span style={{ color: timerExpired ? '#ef4444' : timerExpiring ? '#f59e0b' : modelColor }}>
                                   <CountdownTimer
                                     nextDueAt={timer?.next_due_at}
-                                    accountId={acc.id} platform={acc.platform} email={acc.email} userId={user.id}
+                                    accountId={acc.id} platform={acc.platform} email={acc.email} userId={user.id} modelName={timer.model_name}
                                     color={progColor}
                                   />
                                 </span>
                                 {/* Refresh button — colored icon */}
-                                <button onClick={() => handleMarkRefreshed(timer.id, timer.interval_hours, acc.platform, acc.email)}
+                                <button onClick={() => handleMarkRefreshed(timer.id, timer.interval_hours, acc.email, timer.model_name)}
                                   className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
                                   style={{ color: modelColor }}
                                   onMouseEnter={e => { e.currentTarget.style.background = `color-mix(in srgb, ${modelColor} 15%, transparent)` }}
@@ -279,6 +333,8 @@ export default function AccountsIndex() {
                                   title="Refresh token">
                                   <RotateCw className="w-3 h-3" />
                                 </button>
+                                
+                                <CopyButton text={timer.model_name || 'Model'} tooltip="Copy model name" className="opacity-0 group-hover/model:opacity-100" />
                               </div>
                             </div>
 
@@ -324,22 +380,11 @@ export default function AccountsIndex() {
             ) : (
               <div className="relative">
                 {activity.map((n, idx) => {
-                  let platName = 'A'
-                  const match = n.message.match(/for\s+([^\s]+)\s+account/)
-                  if (match) platName = match[1]
-                  else if (n.message.includes('account refreshed')) platName = n.message.split(' ')[0]
-                  else if (n.message.includes('has expired')) platName = n.message.split(' ')[0]
-                  else if (n.message.includes('token renewed')) platName = n.message.split(' ')[0]
-                  
-                  // Clean up message
-                  let displayMsg = n.message
-                  if (displayMsg.includes('You refreshed the token for')) {
-                     displayMsg = `${platName} account refreshed`
-                  }
-
                   // Retrieve matching account to get icon_url if available
-                  const matchingAcc = accounts.find(a => a.platform.toLowerCase() === platName.toLowerCase())
+                  const matchingAcc = accounts.find(a => n.message.includes(a.email))
+                  const platName = matchingAcc ? matchingAcc.platform : 'A'
                   const iconUrl = matchingAcc?.icon_url
+                  const displayMsg = n.message
                   
                   return (
                     <div key={n.id} className="flex gap-3.5 relative">
@@ -379,7 +424,7 @@ export default function AccountsIndex() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         account={editingAccount} 
-        onSave={(platform) => handleModalSave(platform, !!editingAccount)} 
+        onSave={(email) => handleModalSave(email, !!editingAccount)} 
       />
     </div>
   )
