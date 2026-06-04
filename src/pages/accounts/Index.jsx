@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import CountdownTimer from '@/components/CountdownTimer'
 import AccountModal from '@/components/AccountModal'
 import { Search, Pencil, Trash2, RotateCw, Eraser, MoreVertical, Archive, Copy, Check } from 'lucide-react'
@@ -88,6 +89,7 @@ export default function AccountsIndex() {
   const [sortBy, setSortBy] = useState('soonest')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState(null)
+  const { addToast } = useToast()
 
   const load = useCallback(async () => {
     const [{ data: acc }, { data: notifs }] = await Promise.all([
@@ -118,6 +120,41 @@ export default function AccountsIndex() {
     const nextDue = new Date(now.getTime() + intervalHours * 3600000)
     await supabase.from('token_timers').update({ last_refreshed_at: now.toISOString(), next_due_at: nextDue.toISOString() }).eq('id', timerId)
     await insertNotif(`${email} (${modelName}) token refreshed`)
+    load()
+  }
+
+  async function handleBulkRefresh() {
+    const expiredTimers = []
+    accounts.forEach(a => {
+      const t = a.token_timers?.[0]
+      if (t && t.next_due_at && new Date(t.next_due_at) <= Date.now()) {
+        expiredTimers.push({ ...t, email: a.email })
+      }
+    })
+
+    if (expiredTimers.length === 0) return
+
+    setLoading(true)
+    const now = new Date()
+
+    const updates = expiredTimers.map(t => {
+      const nextDue = new Date(now.getTime() + (t.interval_hours || 0) * 3600000)
+      return supabase.from('token_timers')
+        .update({ 
+          last_refreshed_at: now.toISOString(), 
+          next_due_at: nextDue.toISOString() 
+        })
+        .eq('id', t.id)
+    })
+    
+    await Promise.all(updates)
+    await insertNotif(`Bulk refresh: ${expiredTimers.length} expired tokens marked as refreshed`)
+    
+    addToast({
+      type: 'success',
+      message: `✓ ${expiredTimers.length} tokens refreshed successfully`
+    })
+
     load()
   }
 
@@ -173,6 +210,10 @@ export default function AccountsIndex() {
   })
 
   const types = ['All', ...new Set(accounts.map(a => a.type))]
+  const expiredCountTotal = accounts.reduce((acc, a) => {
+    const t = a.token_timers?.[0]
+    return acc + (t && t.next_due_at && new Date(t.next_due_at) <= Date.now() ? 1 : 0)
+  }, 0)
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -217,13 +258,30 @@ export default function AccountsIndex() {
             style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
             Archived
           </Link>
-          <button onClick={() => { setEditingAccount(null); setIsModalOpen(true); }}
-            className="px-4 py-2 text-sm rounded-lg text-white font-medium transition-all hover:opacity-90 shadow-sm"
-            style={{ background: 'var(--ap-accent)' }}>
-            + Add Account
+          <button onClick={() => { setEditingAccount(null); setIsModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+            <span className="hidden sm:inline">Add Account</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
+
+      {expiredCountTotal >= 2 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-[10px] mb-6 animate-in slide-in-from-top-2 fade-in"
+          style={{
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.2)'
+          }}>
+          <p className="text-[#ef4444] font-bold text-sm flex items-center gap-2">
+            <span>⚠</span> {expiredCountTotal} expired tokens detected
+          </p>
+          <button 
+            onClick={handleBulkRefresh}
+            className="px-4 py-2 rounded-md bg-[#ef4444] hover:bg-[#dc2626] text-white text-xs font-bold transition-colors shadow-sm shrink-0"
+          >
+            Mark All Expired as Refreshed
+          </button>
+        </div>
+      )}
 
       {/* ── Content Layout ── */}
       <div className={`transition-all duration-700 flex flex-col lg:flex-row items-start gap-5 flex-1 min-h-0 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>

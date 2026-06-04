@@ -41,6 +41,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [expiredCount, setExpiredCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [collapsed, setCollapsed] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -58,14 +59,28 @@ export default function AppLayout() {
 
   async function loadNotifications() {
     if (!user) return
-    const [{ count }, { data }] = await Promise.all([
+    const [{ count }, { data }, { data: accounts }] = await Promise.all([
       supabase.from('notifications').select('*', { count: 'exact', head: true })
         .eq('user_id', user.id).eq('is_read', false),
       supabase.from('notifications').select('*')
-        .eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
+        .eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
+      supabase.from('accounts').select('id, token_timers(next_due_at)')
+        .eq('user_id', user.id).is('deleted_at', null)
     ])
     setUnreadCount(count || 0)
     setNotifications(data || [])
+
+    if (accounts) {
+      let expired = 0
+      const now = Date.now()
+      accounts.forEach(a => {
+        const t = a.token_timers?.[0]
+        if (t && t.next_due_at && (new Date(t.next_due_at) - now <= 0)) {
+          expired++
+        }
+      })
+      setExpiredCount(expired)
+    }
   }
 
   useEffect(() => {
@@ -131,40 +146,53 @@ export default function AppLayout() {
 
         {/* Nav */}
         <nav className="flex flex-col gap-0.5 flex-1 px-2 overflow-y-auto custom-scrollbar">
-          {NAV_ITEMS.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative group
-                ${collapsed ? 'justify-center' : ''}
-                ${isActive
-                  ? 'text-white shadow-sm'
-                  : ''
-                }`
-              }
-              style={({ isActive }) => isActive ? {
-                background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)',
-                boxShadow: '0 4px 12px color-mix(in srgb, var(--ap-accent) 30%, transparent)'
-              } : {}}
-            >
-              {({ isActive }) => (
-                <>
-                  <span style={{ color: isActive ? 'white' : 'var(--muted-foreground)' }}
-                    className="group-hover:text-foreground transition-colors">
-                    {item.icon}
-                  </span>
-                  {!collapsed && (
-                    <span style={{ color: isActive ? 'white' : 'var(--muted-foreground)' }}
-                      className="group-hover:text-foreground transition-colors">
-                      {item.label}
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
+          {NAV_ITEMS.map(item => {
+            const isAccounts = item.to === '/accounts'
+            const showBadge = isAccounts && expiredCount > 0
+            const badgeText = expiredCount > 9 ? '9+' : expiredCount
+            
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                title={collapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative group
+                  ${collapsed ? 'justify-center' : ''}
+                  ${isActive
+                    ? 'text-white shadow-sm'
+                    : ''
+                  }`
+                }
+                style={({ isActive }) => isActive ? {
+                  background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)',
+                  boxShadow: '0 4px 12px color-mix(in srgb, var(--ap-accent) 30%, transparent)'
+                } : {}}
+              >
+                {({ isActive }) => (
+                  <>
+                    <div style={{ color: isActive ? 'white' : 'var(--muted-foreground)' }} 
+                      className={`transition-colors ${!isActive && 'group-hover:text-foreground'}`}>
+                      {item.icon}
+                    </div>
+                    {!collapsed && (
+                      <span style={{ color: isActive ? 'white' : 'var(--muted-foreground)' }}
+                        className={`transition-colors ${!isActive && 'group-hover:text-foreground'}`}>
+                        {item.label}
+                      </span>
+                    )}
+                    
+                    {/* Badge */}
+                    {showBadge && (
+                      <span className="absolute top-1 right-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-background">
+                        {badgeText}
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            )
+          })}
         </nav>
 
         {/* Bottom Controls */}

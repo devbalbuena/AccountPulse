@@ -43,8 +43,62 @@ function Sparkline({ color = 'var(--ap-accent)' }) {
   )
 }
 
+/* ─── Token Health Bar ─── */
+function TokenHealthBar({ accounts }) {
+  const total = accounts.length
+  
+  if (total === 0) {
+    return (
+      <div className="mt-2">
+        <div className="w-full h-1.5 rounded-full bg-emerald-500" />
+        <div className="flex gap-2.5 text-[11px] mt-1.5 font-medium">
+          <span className="text-emerald-500">✓ 0 healthy</span>
+          <span className="text-amber-500">⚠ 0 warning</span>
+          <span className="text-red-500">✗ 0 expired</span>
+        </div>
+      </div>
+    )
+  }
+
+  const now = Date.now()
+  let healthy = 0
+  let warning = 0
+  let expired = 0
+
+  accounts.forEach(a => {
+    const t = a.token_timers?.[0]
+    if (!t || !t.next_due_at) {
+      expired++
+      return
+    }
+    const diff = new Date(t.next_due_at) - now
+    if (diff <= 0) expired++
+    else if (diff <= 86400000) warning++
+    else healthy++
+  })
+
+  const hPct = (healthy / total) * 100
+  const wPct = (warning / total) * 100
+  const ePct = (expired / total) * 100
+
+  return (
+    <div className="mt-2">
+      <div className="w-full h-1.5 rounded-full overflow-hidden flex bg-muted/50">
+        {hPct > 0 && <div className="h-full bg-emerald-500 transition-all" style={{ width: `${hPct}%` }} />}
+        {wPct > 0 && <div className="h-full bg-amber-500 transition-all" style={{ width: `${wPct}%` }} />}
+        {ePct > 0 && <div className="h-full bg-red-500 transition-all" style={{ width: `${ePct}%` }} />}
+      </div>
+      <div className="flex gap-2.5 text-[11px] mt-1.5 font-medium">
+        <span className="text-emerald-500">✓ {healthy} healthy</span>
+        <span className="text-amber-500">⚠ {warning} warning</span>
+        <span className="text-red-500">✗ {expired} expired</span>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Stat Card ─── */
-function StatCard({ title, value, subtitle, icon, accent, sparkColor }) {
+function StatCard({ title, value, subtitle, icon, accent, sparkColor, rawAccounts }) {
   return (
     <div className="rounded-2xl border p-5 flex flex-col relative overflow-hidden transition-shadow hover:shadow-md"
       style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
@@ -61,7 +115,11 @@ function StatCard({ title, value, subtitle, icon, accent, sparkColor }) {
           <span style={{ color: accent }}>{icon}</span>
         </div>
       </div>
-      <Sparkline color={sparkColor || accent} />
+      {title === 'Total Accounts' ? (
+        <TokenHealthBar accounts={rawAccounts || []} />
+      ) : (
+        <Sparkline color={sparkColor || accent} />
+      )}
     </div>
   )
 }
@@ -139,6 +197,17 @@ export default function Dashboard() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false)
   const [isSubModalOpen, setIsSubModalOpen] = useState(false)
+  const [bannerDismissed, setBannerDismissed] = useState(
+    sessionStorage.getItem('dashboard_banner_dismissed') === 'true'
+  )
+  
+  // To trigger re-renders for live countdown timers
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   const load = useCallback(async () => {
     const [{ data: acc }, { data: subs }, { count: accCount }, { data: notifs }] = await Promise.all([
@@ -178,6 +247,40 @@ export default function Dashboard() {
 
   const nextBill = subscriptions[0] || null
 
+  // Calculate banner stats
+  const now = Date.now()
+  const expiredAccs = []
+  const expiringAccs = []
+  
+  accounts.forEach(a => {
+    const t = a.token_timers?.[0]
+    if (t && t.next_due_at) {
+      const diff = new Date(t.next_due_at) - now
+      if (diff <= 0) expiredAccs.push(a)
+      else if (diff <= 86400000) expiringAccs.push(a)
+    }
+  })
+
+  const showAlert = !bannerDismissed && (expiredAccs.length > 0 || expiringAccs.length > 0)
+  const isExpiredBanner = expiredAccs.length > 0
+  const bannerAccs = isExpiredBanner ? expiredAccs : expiringAccs
+  const bannerCount = bannerAccs.length
+  
+  const bannerColor = isExpiredBanner ? '#ef4444' : '#f59e0b'
+  const bannerBg = isExpiredBanner ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)'
+  const bannerBorder = isExpiredBanner ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'
+  const bannerTitle = isExpiredBanner 
+    ? `${bannerCount} token${bannerCount > 1 ? 's' : ''} expired and need refresh`
+    : `${bannerCount} token${bannerCount > 1 ? 's' : ''} expiring within 24 hours`
+  
+  const bannerList = bannerAccs.slice(0, 3).map(a => `${a.email} (${a.token_timers[0].model_name})`).join(', ') + 
+    (bannerCount > 3 ? `, + ${bannerCount - 3} more` : '')
+
+  const dismissBanner = () => {
+    sessionStorage.setItem('dashboard_banner_dismissed', 'true')
+    setBannerDismissed(true)
+  }
+
   // Compute platform distribution
   const platformMap = {}
   accounts.forEach(a => {
@@ -215,9 +318,49 @@ export default function Dashboard() {
       </div>
 
       <div className={`transition-all duration-700 space-y-6 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      
+      {/* ── Alert Banner ── */}
+      {showAlert && (
+        <div 
+          className="flex items-center justify-between p-3 sm:p-4 rounded-[10px] animate-in slide-in-from-top-4 fade-in duration-300"
+          style={{
+            background: bannerBg,
+            border: `1px solid ${bannerBorder}`,
+            borderLeft: `3px solid ${bannerColor}`
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full" style={{ background: bannerColor }}>
+              <span className="text-white font-bold text-xs">!</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm" style={{ color: bannerColor }}>{bannerTitle}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>{bannerList}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-4">
+            <Link 
+              to="/accounts"
+              className="px-3 sm:px-4 py-1.5 rounded-md text-xs font-bold border transition-colors hover:bg-white/10"
+              style={{ color: bannerColor, borderColor: bannerColor }}
+            >
+              View Accounts
+            </Link>
+            <button 
+              onClick={dismissBanner}
+              className="p-1 rounded-md transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ color: 'var(--muted-foreground)' }}
+            >
+              <span className="sr-only">Dismiss</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Row 1: Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="Total Accounts" value={totalAccounts}
+        <StatCard title="Total Accounts" value={totalAccounts} rawAccounts={accounts}
           icon={<Layers className="w-4.5 h-4.5" />}
           accent="var(--ap-accent)" sparkColor="var(--ap-accent)" />
         <StatCard title="Expiring 24h" value={expiringIn24h}

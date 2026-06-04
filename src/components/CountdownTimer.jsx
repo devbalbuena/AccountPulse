@@ -1,10 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/context/ToastContext'
 
 export default function CountdownTimer({ nextDueAt, accountId, platform, email, userId, modelName = 'Model', large = false }) {
   const [timeLeft, setTimeLeft] = useState('')
   const [status, setStatus] = useState('ok')
   const lastNotifiedDueAt = useRef(null)
+  const { addToast } = useToast()
+  const notifiedToast = useRef({ expired: false, expiring: false })
+
+  useEffect(() => {
+    notifiedToast.current = { expired: false, expiring: false }
+  }, [nextDueAt])
 
   useEffect(() => {
     if (!nextDueAt) {
@@ -21,6 +28,11 @@ export default function CountdownTimer({ nextDueAt, accountId, platform, email, 
       if (diff <= 0) {
         setTimeLeft('Expired')
         setStatus('expired')
+
+        if (!notifiedToast.current.expired) {
+          notifiedToast.current.expired = true
+          addToast({ type: 'expired', message: `${email} — ${modelName}` })
+        }
 
         if (accountId && nextDueAt && lastNotifiedDueAt.current !== nextDueAt) {
           lastNotifiedDueAt.current = nextDueAt
@@ -50,6 +62,11 @@ export default function CountdownTimer({ nextDueAt, accountId, platform, email, 
       const totalHours = diff / 3600000
       if (totalHours < 5) setStatus('warning')
       else setStatus('ok')
+      
+      if (totalHours < 1 && !notifiedToast.current.expiring) {
+        notifiedToast.current.expiring = true
+        addToast({ type: 'expiring', message: `${email} — ${modelName}` })
+      }
     }
 
     calculate()

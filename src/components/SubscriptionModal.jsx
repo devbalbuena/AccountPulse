@@ -119,7 +119,8 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
       currency: form.currency,
       payment_method: form.payment_method || null,
       category: form.category || null, 
-      notes: form.notes || null
+      notes: form.notes || null,
+      billing_day: form.next_billing_date ? new Date(form.next_billing_date + 'T00:00:00').getDate() : 1
     }
 
     if (subscription) {
