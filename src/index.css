@@ -73,6 +73,7 @@
     --destructive: #dc2626;
     --border: #e5e5f0;
     --input: #e5e5f0;
+    --input-bg: #ffffff;
     --ring: #2563eb;
     --radius: 0.75rem;
     --sidebar: #ffffff;
@@ -115,6 +116,7 @@
     --destructive: #ef4444;
     --border: #1e1e30;
     --input: #1e1e30;
+    --input-bg: #1a1d27;
     --ring: #3b82f6;
     --sidebar: #0f0f1a;
     --sidebar-foreground: #f0f0ff;
