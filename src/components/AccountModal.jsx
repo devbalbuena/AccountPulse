@@ -134,7 +134,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
       setIconPreview(account.icon_url || '')
 
       if (account.token_timers && account.token_timers.length > 0) {
-        const loaded = account.token_timers.slice(0, 2).map(t => {
+        const loaded = account.token_timers.map(t => {
           const totalHours = t.interval_hours || 0
           return {
             id: t.id,
@@ -320,14 +320,12 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
           <div className="border-t border-border/50 pt-5 mt-1 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Token Refresh Timers <span className="font-normal normal-case">(optional, max 2)</span>
+                Token Refresh Timers <span className="font-normal normal-case">(optional)</span>
               </p>
-              {timers.length < 2 && (
-                <button type="button" onClick={() => setTimers(t => [...t, emptyTimer()])}
-                  className="flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-400 transition-colors">
-                  <Plus className="w-3 h-3" /> Add Model
-                </button>
-              )}
+              <button type="button" onClick={() => setTimers(t => [...t, emptyTimer()])}
+                className="flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-400 transition-colors">
+                <Plus className="w-3 h-3" /> Add Model
+              </button>
             </div>
 
             {timers.map((t, idx) => (
