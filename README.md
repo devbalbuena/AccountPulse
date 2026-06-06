@@ -153,7 +153,7 @@ The backend database and authentication are hosted and managed entirely by **Sup
 Live link: [https://account-pulse-v1.vercel.app](https://account-pulse-v1.vercel.app)
 
 ## Author
-**Ivan Lee Balbuena**  
+**Van Dexter Balbuena**  
 *3rd Year IT Student*  
 Available for freelance — Full-Stack · UI/UX · AI Projects
 
