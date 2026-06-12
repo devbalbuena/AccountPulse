@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Sun, Moon, User, Palette, Bell, ShieldCheck, Check } from 'lucide-react'
+import { Sun, Moon, User, Palette, Bell, ShieldCheck, Check, Laptop, LogOut } from 'lucide-react'
+import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator'
+import SensitiveActionModal from '@/components/SensitiveActionModal'
 
 const TABS = [
   { id: 'profile',      label: 'Profile',       icon: User },
@@ -183,11 +186,15 @@ function NotificationsTab() {
 
 // ─── Security Tab ───────────────────────────────────────────────────────────────
 function SecurityTab() {
+  const navigate = useNavigate()
   const [form, setForm]     = useState({ password: '', confirm: '' })
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState(null) // { type: 'success'|'error', text }
+  const [message, setMessage] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  
+  const lastLogin = localStorage.getItem('accountpulse_last_login')
+  const lastBrowser = localStorage.getItem('accountpulse_last_browser') || 'Unknown Device'
 
-  async function handleChangePassword(e) {
+  function handleFormSubmit(e) {
     e.preventDefault()
     setMessage(null)
     if (form.password.length < 8) {
@@ -198,15 +205,24 @@ function SecurityTab() {
       setMessage({ type: 'error', text: 'Passwords do not match.' })
       return
     }
-    setLoading(true)
+    setIsModalOpen(true)
+  }
+
+  async function executeChangePassword() {
     const { error } = await supabase.auth.updateUser({ password: form.password })
-    setLoading(false)
     if (error) {
       setMessage({ type: 'error', text: error.message })
     } else {
       setMessage({ type: 'success', text: 'Password updated successfully!' })
       setForm({ password: '', confirm: '' })
     }
+  }
+
+  async function handleSignOutAll() {
+    await supabase.auth.signOut()
+    localStorage.clear()
+    sessionStorage.clear()
+    navigate('/login')
   }
 
   return (
@@ -222,7 +238,7 @@ function SecurityTab() {
           </div>
         )}
 
-        <form onSubmit={handleChangePassword} className="space-y-4">
+        <form onSubmit={handleFormSubmit} className="space-y-4">
           <div>
             <label className={labelCls} style={{ color: 'var(--muted-foreground)' }}>New Password</label>
             <input
@@ -234,6 +250,7 @@ function SecurityTab() {
               className={inputCls}
               style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
             />
+            <PasswordStrengthIndicator password={form.password} />
           </div>
           <div>
             <label className={labelCls} style={{ color: 'var(--muted-foreground)' }}>Confirm New Password</label>
@@ -250,15 +267,49 @@ function SecurityTab() {
           <div className="flex justify-end pt-1">
             <button
               type="submit"
-              disabled={loading}
               className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}
             >
-              {loading ? 'Updating…' : 'Update Password'}
+              Update Password
             </button>
           </div>
         </form>
       </div>
+
+      <div className="mt-6 p-5 rounded-2xl border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: 'var(--foreground)' }}>Current Session</h3>
+        <div className="flex items-center gap-4 p-4 rounded-xl mb-4" style={{ background: 'var(--background)', borderColor: 'var(--border)', borderWidth: '1px' }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--ap-accent) 15%, transparent)', color: 'var(--ap-accent)' }}>
+            <Laptop className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold truncate" style={{ color: 'var(--foreground)' }}>{lastBrowser}</p>
+            <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--muted-foreground)' }}>
+              {lastLogin ? `Started ${new Date(lastLogin).toLocaleString()}` : 'Active now'}
+            </p>
+          </div>
+          <div className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase" style={{ background: 'color-mix(in srgb, #10b981 15%, transparent)', color: '#10b981' }}>
+            Active
+          </div>
+        </div>
+        <button
+          onClick={handleSignOutAll}
+          className="flex items-center justify-center w-full gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border hover:bg-red-500/10 text-red-500 border-red-500/20"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out All Sessions
+        </button>
+      </div>
+
+      <SensitiveActionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Verify Current Password"
+        description="Please enter your current password to authorize this change."
+        confirmText="Update Password"
+        requirePassword={true}
+        onConfirm={executeChangePassword}
+      />
     </div>
   )
 }

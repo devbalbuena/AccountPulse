@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import { Search, MoreVertical, Pencil, Archive, History, Download, CreditCard, Copy, Check, PauseCircle, Calendar, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react'
+import SensitiveActionModal from '@/components/SensitiveActionModal'
 
 const CATEGORY_COLORS = {
   'Entertainment': '#ec4899',
@@ -480,6 +481,7 @@ export default function SubscriptionsIndex() {
 
   // Feature 3: Calendar
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('accountpulse_sub_view') || 'grid')
+  const [subToArchive, setSubToArchive] = useState(null)
 
   // Close sort dropdown on outside click
   useEffect(() => {
@@ -566,9 +568,14 @@ export default function SubscriptionsIndex() {
     setBillingHistory(history.slice(0, 12))
   }, [subs])
 
-  async function handleArchive(id) {
-    if (!confirm('Archive this subscription?')) return
-    await supabase.from('subscriptions').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+  function handleArchiveClick(sub) {
+    setSubToArchive(sub)
+  }
+
+  async function executeArchive() {
+    if (!subToArchive) return
+    await supabase.from('subscriptions').update({ deleted_at: new Date().toISOString() }).eq('id', subToArchive.id)
+    setSubToArchive(null)
     load()
   }
 
@@ -1072,7 +1079,7 @@ export default function SubscriptionsIndex() {
                         <div className="shrink-0 -mr-2 relative top-[-2px]">
                           <CardMenu
                             onEdit={() => { setEditingSub(sub); setIsModalOpen(true) }}
-                            onArchive={() => handleArchive(sub.id)}
+                            onArchive={() => handleArchiveClick(sub)}
                             isPaused={isPaused}
                             onTogglePause={() => handleTogglePause(sub)}
                             serviceName={sub.service_name}
@@ -1197,6 +1204,17 @@ export default function SubscriptionsIndex() {
         onClose={() => setIsModalOpen(false)}
         subscription={editingSub}
         onSave={() => load()}
+      />
+
+      {/* ── Sensitive Action Modal ── */}
+      <SensitiveActionModal
+        isOpen={!!subToArchive}
+        onClose={() => setSubToArchive(null)}
+        title="Archive Subscription"
+        description={`Are you sure you want to archive your ${subToArchive?.service_name} subscription? This will stop tracking it in your active budget.`}
+        confirmText="Archive"
+        confirmPhrase="archive"
+        onConfirm={executeArchive}
       />
     </div>
   )

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator'
 
 const inputCls = [
   "w-full px-4 py-3 rounded-lg text-sm transition-all duration-200 outline-none",
@@ -175,6 +176,7 @@ export default function Register() {
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
               />
+              <PasswordStrengthIndicator password={form.password} />
             </div>
             <div>
               <label className={labelCls}>Confirm Password</label>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator'
 
 // Input styling: dark-on-dark vs white background in light mode
 const inputCls = [
@@ -18,6 +19,9 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
+  const [isResetting, setIsResetting] = useState(false)
+  const [resetMessage, setResetMessage] = useState('')
 
   useEffect(() => {
     const t = setTimeout(() => setIsLoaded(true), 100)
@@ -27,9 +31,47 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setResetMessage('')
     setLoading(true)
+    
+    if (isResetting) {
+      const { error } = await supabase.auth.resetPasswordForEmail(form.email)
+      if (error) {
+        setError(error.message)
+      } else {
+        setResetMessage('Password reset link sent to your email.')
+      }
+      setLoading(false)
+      return
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
-    if (error) { setError(error.message) } else { navigate('/dashboard') }
+    if (error) { 
+      setError(error.message)
+      setFailedAttempts(prev => prev + 1)
+    } else { 
+      // Save last login details
+      localStorage.setItem('accountpulse_last_login', new Date().toISOString())
+      
+      // Parse basic browser/OS info from userAgent
+      const ua = navigator.userAgent
+      let browser = 'Unknown Browser'
+      if (ua.includes('Firefox')) browser = 'Firefox'
+      else if (ua.includes('Chrome')) browser = 'Chrome'
+      else if (ua.includes('Safari')) browser = 'Safari'
+      else if (ua.includes('Edge')) browser = 'Edge'
+      
+      let os = 'Unknown OS'
+      if (ua.includes('Win')) os = 'Windows'
+      else if (ua.includes('Mac')) os = 'macOS'
+      else if (ua.includes('Linux')) os = 'Linux'
+      else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS'
+      else if (ua.includes('Android')) os = 'Android'
+      
+      localStorage.setItem('accountpulse_last_browser', `${browser} on ${os}`)
+      
+      navigate('/dashboard') 
+    }
     setLoading(false)
   }
 
@@ -144,6 +186,21 @@ export default function Login() {
             </div>
           )}
 
+          {resetMessage && (
+            <div className="mb-5 px-4 py-3 rounded-lg text-sm font-medium"
+              style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}>
+              {resetMessage}
+            </div>
+          )}
+
+          {/* Rate limiting message */}
+          {failedAttempts >= 3 && !isResetting && (
+            <div className="mb-5 px-4 py-3 rounded-lg text-sm font-medium"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444' }}>
+              Too many failed attempts. Please wait before trying again.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className={labelCls}>Email Address</label>
@@ -154,30 +211,61 @@ export default function Login() {
                 onChange={e => setForm({ ...form, email: e.target.value })}
               />
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className={labelCls} style={{ marginBottom: 0 }}>Password</label>
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-cyan-500 hover:text-cyan-400 cursor-pointer transition-colors">
-                  Forgot?
-                </span>
-              </div>
-              <input
-                type="password" required className={inputCls}
-                placeholder="••••••••"
-                value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })}
-              />
-            </div>
+            {isResetting ? (
+              <>
+                <div>
+                  <label className={labelCls} style={{ marginBottom: 0 }}>New Password</label>
+                  <input
+                    type="password" required className={inputCls}
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={e => setForm({ ...form, password: e.target.value })}
+                  />
+                  <PasswordStrengthIndicator password={form.password} />
+                </div>
+                <button
+                  type="submit" disabled={loading}
+                  className="w-full py-3 rounded-lg font-bold text-sm text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+                  style={{ background: 'linear-gradient(90deg, #06b6d4, #0891b2)', boxShadow: '0 4px 20px -4px rgba(6,182,212,0.4)' }}
+                  onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px -4px rgba(6,182,212,0.6)' }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 20px -4px rgba(6,182,212,0.4)' }}
+                >
+                  {loading ? 'Sending…' : 'Reset Password'}
+                </button>
+                <div className="text-center mt-4">
+                  <button type="button" onClick={() => setIsResetting(false)} className="text-xs font-semibold uppercase tracking-widest text-cyan-500 hover:text-cyan-400 cursor-pointer transition-colors">
+                    Back to Login
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className={labelCls} style={{ marginBottom: 0 }}>Password</label>
+                    <span onClick={() => setIsResetting(true)} className="text-[10px] font-semibold uppercase tracking-widest text-cyan-500 hover:text-cyan-400 cursor-pointer transition-colors">
+                      Forgot?
+                    </span>
+                  </div>
+                  <input
+                    type="password" required className={inputCls}
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={e => setForm({ ...form, password: e.target.value })}
+                  />
+                </div>
 
-            <button
-              type="submit" disabled={loading}
-              className="w-full py-3 rounded-lg font-bold text-sm text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
-              style={{ background: 'linear-gradient(90deg, #06b6d4, #0891b2)', boxShadow: '0 4px 20px -4px rgba(6,182,212,0.4)' }}
-              onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px -4px rgba(6,182,212,0.6)' }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 20px -4px rgba(6,182,212,0.4)' }}
-            >
-              {loading ? 'Signing in…' : 'Sign In'}
-            </button>
+                <button
+                  type="submit" disabled={loading}
+                  className="w-full py-3 rounded-lg font-bold text-sm text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+                  style={{ background: 'linear-gradient(90deg, #06b6d4, #0891b2)', boxShadow: '0 4px 20px -4px rgba(6,182,212,0.4)' }}
+                  onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px -4px rgba(6,182,212,0.6)' }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 20px -4px rgba(6,182,212,0.4)' }}
+                >
+                  {loading ? 'Signing in…' : 'Sign In'}
+                </button>
+              </>
+            )}
           </form>
 
           <p className="text-center mt-7 text-sm text-slate-400">

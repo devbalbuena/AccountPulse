@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import {
-  Sun, Moon, LogOut, Bell, Search, Settings,
-  LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X
+  LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X, ChevronRight as ChevronRightIcon,
+  Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -43,7 +43,16 @@ export default function AppLayout() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [expiredCount, setExpiredCount] = useState(0)
   const [notifications, setNotifications] = useState([])
-  const [collapsed, setCollapsed] = useState(false)
+  const location = useLocation()
+  const [collapsed, setCollapsed] = useState(() => {
+    const saved = localStorage.getItem('accountpulse_sidebar_collapsed')
+    return saved !== null ? saved === 'true' : true
+  })
+  
+  // Session Timeout State
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
+  const timeoutTimerRef = useRef(null)
+  const logoutTimerRef = useRef(null)
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
@@ -55,6 +64,40 @@ export default function AppLayout() {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('accountpulse_sidebar_collapsed', collapsed.toString())
+  }, [collapsed])
+
+  const resetTimers = () => {
+    if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current)
+    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current)
+    
+    setShowTimeoutWarning(false)
+    
+    // 25 minutes warning
+    timeoutTimerRef.current = setTimeout(() => {
+      setShowTimeoutWarning(true)
+      // 5 minutes later logout
+      logoutTimerRef.current = setTimeout(() => {
+        handleLogout()
+      }, 5 * 60 * 1000)
+    }, 25 * 60 * 1000)
+  }
+
+  useEffect(() => {
+    const events = ['mousemove', 'keydown', 'click', 'scroll']
+    const handler = () => resetTimers()
+    
+    events.forEach(e => window.addEventListener(e, handler))
+    resetTimers()
+    
+    return () => {
+      events.forEach(e => window.removeEventListener(e, handler))
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current)
+      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current)
+    }
   }, [])
 
   async function loadNotifications() {
@@ -355,6 +398,38 @@ export default function AppLayout() {
           </div>
         </header>
 
+        {/* Secondary Navigation Line (Breadcrumbs) */}
+        <div className="px-4 md:px-6 py-2.5 border-b flex items-center text-sm shrink-0" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+          {(() => {
+            const pathnames = location.pathname.split('/').filter(x => x)
+            const breadcrumbs = [
+              { name: 'Dashboard', path: '/dashboard' },
+              ...pathnames.map((value, index) => {
+                const path = `/${pathnames.slice(0, index + 1).join('/')}`
+                const name = value.charAt(0).toUpperCase() + value.slice(1)
+                return { name, path }
+              })
+            ]
+            if (location.pathname === '/dashboard') breadcrumbs.pop()
+
+            return breadcrumbs.map((bc, idx) => {
+              const isLast = idx === breadcrumbs.length - 1
+              return (
+                <div key={bc.path} className="flex items-center">
+                  {isLast ? (
+                    <span className="font-semibold" style={{ color: 'var(--foreground)' }}>{bc.name}</span>
+                  ) : (
+                    <>
+                      <Link to={bc.path} className="hover:underline transition-colors" style={{ color: 'var(--muted-foreground)' }}>{bc.name}</Link>
+                      <ChevronRightIcon className="w-3.5 h-3.5 mx-2" style={{ color: 'var(--muted-foreground)' }} />
+                    </>
+                  )}
+                </div>
+              )
+            })
+          })()}
+        </div>
+
         {/* Main content */}
         <main className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar">
           <Outlet />
@@ -483,6 +558,26 @@ export default function AppLayout() {
           )}
         </div>
       </div>
+
+      {/* ── Session Timeout Warning Modal ── */}
+      {showTimeoutWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+          <div className="border p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center relative z-50 animate-in zoom-in-95 duration-200" 
+            style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+            <div className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'color-mix(in srgb, #ef4444 15%, transparent)', color: '#ef4444' }}>
+              <LogOut className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--foreground)' }}>Session Expiring Soon</h3>
+            <p className="text-sm mb-6" style={{ color: 'var(--muted-foreground)' }}>
+              Your session is about to expire in 5 minutes due to inactivity. Click anywhere or press a key to stay logged in.
+            </p>
+            <button onClick={resetTimers} className="w-full px-4 py-2.5 rounded-xl text-white font-semibold text-sm transition-colors hover:opacity-90 shadow-md"
+              style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}>
+              Stay Logged In
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

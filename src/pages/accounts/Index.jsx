@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import CountdownTimer from '@/components/CountdownTimer'
 import AccountModal from '@/components/AccountModal'
+import SensitiveActionModal from '@/components/SensitiveActionModal'
 import { Search, Pencil, Trash2, RotateCw, Eraser, MoreVertical, Archive, Copy, Check } from 'lucide-react'
 
 function CopyButton({ text, tooltip, className }) {
@@ -85,6 +86,8 @@ export default function AccountsIndex() {
   const [loading, setLoading] = useState(true)
   const [isLoaded, setIsLoaded] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [accountToArchive, setAccountToArchive] = useState(null)
+  const [clearActivityOpen, setClearActivityOpen] = useState(false)
   const [filterType, setFilterType] = useState('All')
   const [sortBy, setSortBy] = useState('soonest')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -108,10 +111,15 @@ export default function AccountsIndex() {
     await supabase.from('notifications').insert({ user_id: user.id, message, is_read: false })
   }
 
-  async function handleArchive(acc) {
-    if (!confirm('Archive this account?')) return
-    await supabase.from('accounts').update({ deleted_at: new Date().toISOString() }).eq('id', acc.id)
-    await insertNotif(`${acc.platform} account archived`)
+  function handleArchiveClick(acc) {
+    setAccountToArchive(acc)
+  }
+
+  async function executeArchive() {
+    if (!accountToArchive) return
+    await supabase.from('accounts').update({ deleted_at: new Date().toISOString() }).eq('id', accountToArchive.id)
+    await insertNotif(`${accountToArchive.platform} account archived`)
+    setAccountToArchive(null)
     load()
   }
 
@@ -158,14 +166,13 @@ export default function AccountsIndex() {
     load()
   }
 
-  async function clearActivityFeed() {
-    if (!confirm('Clear all activity history?')) return
+  async function executeClearActivity() {
     const { error } = await supabase.from('notifications').delete().eq('user_id', user.id)
     if (error) {
       console.error('[Clear Activity] Delete failed:', error)
-      alert(`Clear failed: ${error.message}`)
     } else {
       setActivity([])
+      setClearActivityOpen(false)
     }
   }
 
@@ -329,7 +336,7 @@ export default function AccountsIndex() {
                       <div className="shrink-0 -mr-2 relative top-[-2px]">
                         <CardMenu 
                           onEdit={() => { setEditingAccount(acc); setIsModalOpen(true); }}
-                          onArchive={() => handleArchive(acc)}
+                          onArchive={() => handleArchiveClick(acc)}
                         />
                       </div>
                     </div>
@@ -420,7 +427,7 @@ export default function AccountsIndex() {
           <div className="px-5 py-3.5 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
             <h3 className="text-[15px] font-bold" style={{ color: 'var(--foreground)' }}>Activity Feed</h3>
             {activity.length > 0 && (
-              <button onClick={clearActivityFeed}
+              <button onClick={() => setClearActivityOpen(true)}
                 className="flex items-center gap-1.5 text-xs font-medium hover:opacity-70 transition-opacity"
                 style={{ color: 'var(--muted-foreground)' }}
                 title="Clear activity history">
@@ -483,6 +490,26 @@ export default function AccountsIndex() {
         onClose={() => setIsModalOpen(false)} 
         account={editingAccount} 
         onSave={(email) => handleModalSave(email, !!editingAccount)} 
+      />
+
+      <SensitiveActionModal
+        isOpen={!!accountToArchive}
+        onClose={() => setAccountToArchive(null)}
+        title="Archive Account"
+        description={`Are you sure you want to archive your ${accountToArchive?.platform} account? This will hide it from the main list.`}
+        confirmText="Archive"
+        confirmPhrase="archive"
+        onConfirm={executeArchive}
+      />
+
+      <SensitiveActionModal
+        isOpen={clearActivityOpen}
+        onClose={() => setClearActivityOpen(false)}
+        title="Clear Activity Feed"
+        description="Are you sure you want to delete all activity history? This action cannot be undone."
+        confirmText="Clear History"
+        confirmPhrase="clear"
+        onConfirm={executeClearActivity}
       />
     </div>
   )

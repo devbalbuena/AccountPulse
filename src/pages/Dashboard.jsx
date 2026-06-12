@@ -201,6 +201,9 @@ export default function Dashboard() {
     sessionStorage.getItem('dashboard_banner_dismissed') === 'true'
   )
   
+  const lastLogin = localStorage.getItem('accountpulse_last_login')
+  const lastBrowser = localStorage.getItem('accountpulse_last_browser')
+  
   // To trigger re-renders for live countdown timers
   const [, setTick] = useState(0)
 
@@ -302,6 +305,12 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Dashboard</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>Welcome back, {user?.email?.split('@')[0]}</p>
+          {lastLogin && (
+            <p className="text-[10px] mt-1 font-semibold uppercase tracking-widest" style={{ color: 'var(--muted-foreground)', opacity: 0.7 }}>
+              Last login: {new Date(lastLogin).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              {lastBrowser && ` from ${lastBrowser}`}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setIsAccountModalOpen(true)}
