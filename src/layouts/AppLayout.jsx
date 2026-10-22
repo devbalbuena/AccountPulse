@@ -3,6 +3,10 @@ import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-do
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
+import { evaluateAccountStatus } from '@/lib/durationUtils'
+import { useToast } from '@/context/ToastContext'
+import { useNow } from '@/context/TimeContext'
+import { checkGroupReadyTransitions, resetGroupReadyWatcher } from '@/lib/groupNotificationWatcher'
 import {
   LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X, ChevronRight as ChevronRightIcon,
   Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle
@@ -38,10 +42,12 @@ function timeAgo(ts) {
 
 export default function AppLayout() {
   const { user } = useAuth()
+  const { addToast } = useToast()
+  const now = useNow()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
   const [unreadCount, setUnreadCount] = useState(0)
-  const [expiredCount, setExpiredCount] = useState(0)
+  const [readyCount, setReadyCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(() => {
@@ -59,6 +65,7 @@ export default function AppLayout() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const notifRef = useRef(null)
   const profileRef = useRef(null)
+  const accountsRef = useRef([])
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
@@ -107,24 +114,44 @@ export default function AppLayout() {
         .eq('user_id', user.id).eq('is_read', false),
       supabase.from('notifications').select('*')
         .eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
-      supabase.from('accounts').select('id, token_timers(next_due_at)')
+      supabase.from('accounts').select('id, email, platform, token_timers(next_due_at, group_name, model_name, deleted_at, color)')
         .eq('user_id', user.id).is('deleted_at', null)
     ])
     setUnreadCount(count || 0)
     setNotifications(data || [])
 
     if (accounts) {
-      let expired = 0
-      const now = Date.now()
+      accountsRef.current = accounts
+      let ready = 0
       accounts.forEach(a => {
-        const t = a.token_timers?.[0]
-        if (t && t.next_due_at && (new Date(t.next_due_at) - now <= 0)) {
-          expired++
+        const { isReady, hasTimers } = evaluateAccountStatus(a, now)
+        if (hasTimers !== false && isReady) {
+          ready++
         }
       })
-      setExpiredCount(expired)
+      setReadyCount(ready)
+      checkGroupReadyTransitions(accounts, now, addToast)
     }
   }
+
+  // Synchronized 1-second tick driven by TimeContext to update badge and evaluate group-level toasts
+  useEffect(() => {
+    if (!accountsRef.current || accountsRef.current.length === 0) return
+    let ready = 0
+    accountsRef.current.forEach(a => {
+      const { isReady, hasTimers } = evaluateAccountStatus(a, now)
+      if (hasTimers !== false && isReady) ready++
+    })
+    setReadyCount(ready)
+    checkGroupReadyTransitions(accountsRef.current, now, addToast)
+  }, [now, addToast])
+
+  // Clear group watcher state when user signs out
+  useEffect(() => {
+    if (!user) {
+      resetGroupReadyWatcher()
+    }
+  }, [user])
 
   useEffect(() => {
     loadNotifications()
@@ -141,6 +168,7 @@ export default function AppLayout() {
   }
 
   async function handleLogout() {
+    resetGroupReadyWatcher()
     await supabase.auth.signOut()
     navigate('/login')
   }
@@ -191,8 +219,8 @@ export default function AppLayout() {
         <nav className="flex flex-col gap-0.5 flex-1 px-2 overflow-y-auto custom-scrollbar">
           {NAV_ITEMS.map(item => {
             const isAccounts = item.to === '/accounts'
-            const showBadge = isAccounts && expiredCount > 0
-            const badgeText = expiredCount > 9 ? '9+' : expiredCount
+            const showBadge = isAccounts && readyCount > 0
+            const badgeText = readyCount > 9 ? '9+' : readyCount
             
             return (
               <NavLink
@@ -227,7 +255,7 @@ export default function AppLayout() {
                     
                     {/* Badge */}
                     {showBadge && (
-                      <span className="absolute top-1 right-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-background">
+                      <span className="absolute top-1 right-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-background">
                         {badgeText}
                       </span>
                     )}
