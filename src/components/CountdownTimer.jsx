@@ -1,92 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useToast } from '@/context/ToastContext'
+import { useNow } from '@/context/TimeContext'
 
-export default function CountdownTimer({ nextDueAt, accountId, platform, email, userId, modelName = 'Model', large = false }) {
-  const [timeLeft, setTimeLeft] = useState('')
-  const [status, setStatus] = useState('ok')
-  const lastNotifiedDueAt = useRef(null)
-  const { addToast } = useToast()
-  const notifiedToast = useRef({ expired: false, expiring: false })
+export default function CountdownTimer({ nextDueAt, large = false }) {
+  const now = useNow()
 
-  useEffect(() => {
-    notifiedToast.current = { expired: false, expiring: false }
-  }, [nextDueAt])
-
-  useEffect(() => {
-    if (!nextDueAt) {
-      setTimeLeft('No timer')
-      setStatus('ok')
-      return
-    }
-
-    function calculate() {
-      const now = new Date()
-      const due = new Date(nextDueAt)
-      const diff = due - now
-
-      if (diff <= 0) {
-        setTimeLeft('Expired')
-        setStatus('expired')
-
-        if (!notifiedToast.current.expired) {
-          notifiedToast.current.expired = true
-          addToast({ type: 'expired', message: `${email} — ${modelName}` })
-        }
-
-        if (accountId && nextDueAt && lastNotifiedDueAt.current !== nextDueAt) {
-          lastNotifiedDueAt.current = nextDueAt
-          supabase.from('notifications').insert({
-            user_id: userId,
-            message: `${email} (${modelName}) token has expired`,
-            is_read: false
-          }).then(() => {}) // silently catch
-        }
-        return
-      }
-
-      const totalSeconds = Math.floor(diff / 1000)
-      const days = Math.floor(totalSeconds / 86400)
-      const hours = Math.floor((totalSeconds % 86400) / 3600)
-      const minutes = Math.floor((totalSeconds % 3600) / 60)
-      const seconds = totalSeconds % 60
-
-      if (days > 0) {
-        setTimeLeft(`${days}d ${hours}h ${minutes}m`)
-      } else if (hours > 0) {
-        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`)
-      } else {
-        setTimeLeft(`${minutes}m ${seconds}s`)
-      }
-
-      const totalHours = diff / 3600000
-      if (totalHours < 5) setStatus('warning')
-      else setStatus('ok')
-      
-      if (totalHours < 1 && !notifiedToast.current.expiring) {
-        notifiedToast.current.expiring = true
-        addToast({ type: 'expiring', message: `${email} — ${modelName}` })
-      }
-    }
-
-    calculate()
-    const interval = setInterval(calculate, 1000)
-    return () => clearInterval(interval)
-  }, [nextDueAt])
-
-  const statusClasses = {
-    ok: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/10',
-    warning: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900',
-    expired: 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900',
-  }
-
-  const dotClasses = {
-    ok: '',
-    warning: 'bg-amber-500',
-    expired: 'bg-red-500',
-  }
-
-  if (status === 'ok' && !nextDueAt) {
+  if (!nextDueAt) {
     return (
       <span className={large 
         ? "text-xl font-bold tracking-tight" 
@@ -97,10 +14,47 @@ export default function CountdownTimer({ nextDueAt, accountId, platform, email, 
     )
   }
 
+  const due = new Date(nextDueAt).getTime()
+  const diff = due - now
+
+  let timeLeft = ''
+  let status = 'cooldown'
+
+  if (isNaN(due) || diff <= 0) {
+    timeLeft = 'Ready'
+    status = 'ready'
+  } else {
+    const totalSeconds = Math.floor(diff / 1000)
+    const days = Math.floor(totalSeconds / 86400)
+    const hours = Math.floor((totalSeconds % 86400) / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+
+    if (days > 0) {
+      timeLeft = `${days}d ${hours}h ${minutes}m`
+    } else if (hours > 0) {
+      timeLeft = `${hours}h ${minutes}m ${seconds}s`
+    } else {
+      timeLeft = `${minutes}m ${seconds}s`
+    }
+  }
+
+  const statusClasses = {
+    ready: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+    warning: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900',
+    cooldown: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+  }
+
+  const dotClasses = {
+    ready: '',
+    warning: 'bg-amber-500',
+    cooldown: 'bg-slate-400',
+  }
+
   const largeClasses = {
-    ok: { color: 'var(--foreground)' },
+    ready: { color: '#10b981' },
     warning: { color: '#f59e0b' },
-    expired: { color: '#ef4444' }
+    cooldown: { color: 'var(--foreground)' }
   }
 
   return (
@@ -111,7 +65,7 @@ export default function CountdownTimer({ nextDueAt, accountId, platform, email, 
       }
       style={large ? largeClasses[status] : {}}
     >
-      {status !== 'ok' && (
+      {status !== 'ready' && (
         <span className={`rounded-full animate-pulse ${dotClasses[status]} ${large ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'}`} />
       )}
       {timeLeft}
