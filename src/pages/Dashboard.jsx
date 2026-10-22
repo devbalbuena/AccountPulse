@@ -5,7 +5,10 @@ import { useAuth } from '@/context/AuthContext'
 import CountdownTimer from '@/components/CountdownTimer'
 import AccountModal from '@/components/AccountModal'
 import SubscriptionModal from '@/components/SubscriptionModal'
-import { Layers, Clock, Receipt, Calendar, Plus, Bell } from 'lucide-react'
+import { evaluateAccountStatus, formatDuration } from '@/lib/durationUtils'
+import { useNow } from '@/context/TimeContext'
+import { Layers, Clock, Receipt, Calendar, Plus, Bell, CheckCircle2, ArrowRight, Copy, Check } from 'lucide-react'
+import { useToast } from '@/context/ToastContext'
 
 /* ─── helpers ─── */
 function formatDate(d) {
@@ -45,53 +48,44 @@ function Sparkline({ color = 'var(--ap-accent)' }) {
 
 /* ─── Token Health Bar ─── */
 function TokenHealthBar({ accounts }) {
-  const total = accounts.length
+  const validAccounts = (accounts || []).filter(a => a.token_timers && a.token_timers.length > 0)
+  const total = validAccounts.length
   
   if (total === 0) {
     return (
       <div className="mt-2">
-        <div className="w-full h-1.5 rounded-full bg-emerald-500" />
+        <div className="w-full h-1.5 rounded-full bg-muted/60" />
         <div className="flex gap-2.5 text-[11px] mt-1.5 font-medium">
-          <span className="text-emerald-500">✓ 0 healthy</span>
-          <span className="text-amber-500">⚠ 0 warning</span>
-          <span className="text-red-500">✗ 0 expired</span>
+          <span className="text-muted-foreground">No active timers</span>
         </div>
       </div>
     )
   }
 
   const now = Date.now()
-  let healthy = 0
-  let warning = 0
-  let expired = 0
+  let ready = 0
+  let cooldown = 0
 
-  accounts.forEach(a => {
-    const t = a.token_timers?.[0]
-    if (!t || !t.next_due_at) {
-      expired++
-      return
+  validAccounts.forEach(a => {
+    const { isReady, hasTimers } = evaluateAccountStatus(a, now)
+    if (hasTimers !== false) {
+      if (isReady) ready++
+      else cooldown++
     }
-    const diff = new Date(t.next_due_at) - now
-    if (diff <= 0) expired++
-    else if (diff <= 86400000) warning++
-    else healthy++
   })
 
-  const hPct = (healthy / total) * 100
-  const wPct = (warning / total) * 100
-  const ePct = (expired / total) * 100
+  const rPct = total > 0 ? (ready / total) * 100 : 0
+  const cPct = total > 0 ? (cooldown / total) * 100 : 0
 
   return (
     <div className="mt-2">
       <div className="w-full h-1.5 rounded-full overflow-hidden flex bg-muted/50">
-        {hPct > 0 && <div className="h-full bg-emerald-500 transition-all" style={{ width: `${hPct}%` }} />}
-        {wPct > 0 && <div className="h-full bg-amber-500 transition-all" style={{ width: `${wPct}%` }} />}
-        {ePct > 0 && <div className="h-full bg-red-500 transition-all" style={{ width: `${ePct}%` }} />}
+        {rPct > 0 && <div className="h-full bg-emerald-500 transition-all" style={{ width: `${rPct}%` }} />}
+        {cPct > 0 && <div className="h-full bg-amber-500 transition-all" style={{ width: `${cPct}%` }} />}
       </div>
       <div className="flex gap-2.5 text-[11px] mt-1.5 font-medium">
-        <span className="text-emerald-500">✓ {healthy} healthy</span>
-        <span className="text-amber-500">⚠ {warning} warning</span>
-        <span className="text-red-500">✗ {expired} expired</span>
+        <span className="text-emerald-500">✓ {ready} ready</span>
+        <span className="text-amber-500">⏳ {cooldown} on cooldown</span>
       </div>
     </div>
   )
@@ -204,13 +198,8 @@ export default function Dashboard() {
   const lastLogin = localStorage.getItem('accountpulse_last_login')
   const lastBrowser = localStorage.getItem('accountpulse_last_browser')
   
-  // To trigger re-renders for live countdown timers
-  const [, setTick] = useState(0)
-
-  useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 60000)
-    return () => clearInterval(interval)
-  }, [])
+  const now = useNow()
+  const { addToast } = useToast()
 
   const load = useCallback(async () => {
     const [{ data: acc }, { data: subs }, { count: accCount }, { data: notifs }] = await Promise.all([
@@ -250,33 +239,35 @@ export default function Dashboard() {
 
   const nextBill = subscriptions[0] || null
 
-  // Calculate banner stats
-  const now = Date.now()
-  const expiredAccs = []
-  const expiringAccs = []
-  
+  // Calculate Ready Now accounts and Next To Return
+  const accountsWithTimers = accounts.filter(a => a.token_timers && a.token_timers.some(t => !t.deleted_at))
+  const readyAccs = []
+  const cooldownAccs = []
+
   accounts.forEach(a => {
-    const t = a.token_timers?.[0]
-    if (t && t.next_due_at) {
-      const diff = new Date(t.next_due_at) - now
-      if (diff <= 0) expiredAccs.push(a)
-      else if (diff <= 86400000) expiringAccs.push(a)
+    const status = evaluateAccountStatus(a, now)
+    if (status.hasTimers !== false) {
+      if (status.isReady) {
+        readyAccs.push({ account: a, status })
+      } else {
+        cooldownAccs.push({ account: a, status })
+      }
     }
   })
 
-  const showAlert = !bannerDismissed && (expiredAccs.length > 0 || expiringAccs.length > 0)
-  const isExpiredBanner = expiredAccs.length > 0
-  const bannerAccs = isExpiredBanner ? expiredAccs : expiringAccs
-  const bannerCount = bannerAccs.length
+  cooldownAccs.sort((a, b) => a.status.soonestAvailableMs - b.status.soonestAvailableMs)
+  const nextToReturn = cooldownAccs[0] || null
+  const nextGroup = nextToReturn ? nextToReturn.status.groups.find(g => !g.isReady && g.maxRemainingMs === nextToReturn.status.soonestAvailableMs) : null
+
+  const bannerCount = readyAccs.length
+  const showAlert = !bannerDismissed && bannerCount > 0
   
-  const bannerColor = isExpiredBanner ? '#ef4444' : '#f59e0b'
-  const bannerBg = isExpiredBanner ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)'
-  const bannerBorder = isExpiredBanner ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'
-  const bannerTitle = isExpiredBanner 
-    ? `${bannerCount} token${bannerCount > 1 ? 's' : ''} expired and need refresh`
-    : `${bannerCount} token${bannerCount > 1 ? 's' : ''} expiring within 24 hours`
+  const bannerColor = '#10b981'
+  const bannerBg = 'rgba(16, 185, 129, 0.1)'
+  const bannerBorder = 'rgba(16, 185, 129, 0.3)'
+  const bannerTitle = `${bannerCount} account${bannerCount > 1 ? 's' : ''} ready to use`
   
-  const bannerList = bannerAccs.slice(0, 3).map(a => `${a.email} (${a.token_timers[0].model_name})`).join(', ') + 
+  const bannerList = readyAccs.slice(0, 3).map(r => `${r.account.email} (${r.account.platform})`).join(', ') + 
     (bannerCount > 3 ? `, + ${bannerCount - 3} more` : '')
 
   const dismissBanner = () => {
@@ -372,9 +363,9 @@ export default function Dashboard() {
         <StatCard title="Total Accounts" value={totalAccounts} rawAccounts={accounts}
           icon={<Layers className="w-4.5 h-4.5" />}
           accent="var(--ap-accent)" sparkColor="var(--ap-accent)" />
-        <StatCard title="Expiring 24h" value={expiringIn24h}
-          icon={<Clock className="w-4.5 h-4.5" />}
-          accent="#ef4444" sparkColor="#ef4444" />
+        <StatCard title="Ready Now" value={bannerCount}
+          icon={<CheckCircle2 className="w-4.5 h-4.5" />}
+          accent="#10b981" sparkColor="#10b981" />
         <StatCard title="Bills This Month" value={dueThisMonth}
           icon={<Receipt className="w-4.5 h-4.5" />}
           accent="var(--ap-accent2)" sparkColor="var(--ap-accent2)" />
@@ -388,38 +379,162 @@ export default function Dashboard() {
       {/* ── Row 2: 3-column grid ── */}
       <div className="grid grid-cols-1 xl:grid-cols-[2fr_1.6fr_1.2fr] gap-5">
 
-        {/* Left: Accounts List */}
-        <Panel title="Accounts" action={
-          <Link to="/accounts" className="text-xs font-medium hover:underline" style={{ color: 'var(--ap-accent)' }}>View all →</Link>
-        }>
+        {/* Left: Ready Now Card with Next to Return */}
+        <Panel 
+          title="Ready Now" 
+          action={
+            <Link to="/accounts" className="text-xs font-semibold hover:underline flex items-center gap-1" style={{ color: 'var(--ap-accent)' }}>
+              <span>View all ({accounts.length})</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          }
+        >
           {accounts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex flex-col items-center justify-center py-12 text-center px-4">
               <Layers className="w-10 h-10 mb-3 opacity-20" style={{ color: 'var(--foreground)' }} />
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>No accounts yet</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>No accounts yet</p>
+              <p className="text-xs mt-1 max-w-xs" style={{ color: 'var(--muted-foreground)' }}>Add your AI or subscription accounts to start tracking quota.</p>
+              <button 
+                onClick={() => setIsAccountModalOpen(true)}
+                className="mt-3.5 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+                style={{ background: 'var(--ap-accent)' }}
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Account
+              </button>
             </div>
           ) : (
-            <ul>
-              {accounts.map(acc => (
-                <li key={acc.id} className="flex items-center justify-between px-5 py-3 border-b last:border-0 transition-colors hover:bg-muted/20"
-                  style={{ borderColor: 'var(--border)' }}>
-                  <div className="min-w-0 mr-3">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--foreground)' }}>{acc.email}</p>
-                    <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'var(--muted-foreground)' }}>
-                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-                        style={{ background: 'color-mix(in srgb, var(--ap-accent) 12%, transparent)', color: 'var(--ap-accent)' }}>
-                        {acc.platform}
-                      </span>
-                      {acc.type}
-                    </p>
+            <div className="flex flex-col h-full">
+              {/* Ready Accounts List */}
+              {accountsWithTimers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+                  <Clock className="w-8 h-8 mb-2 opacity-30 text-muted-foreground" />
+                  <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>No active timers configured</p>
+                  <p className="text-xs mt-1 max-w-xs leading-relaxed" style={{ color: 'var(--muted-foreground)' }}>
+                    Your accounts don't have token cooldown timers set up yet.
+                  </p>
+                  <Link
+                    to="/accounts"
+                    className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border hover:bg-muted transition-colors"
+                    style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                  >
+                    Configure Timers →
+                  </Link>
+                </div>
+              ) : readyAccs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                  <Clock className="w-8 h-8 mb-2 opacity-30 text-amber-500" />
+                  <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Nothing ready yet</p>
+                  <p className="text-xs mt-1 max-w-xs leading-relaxed" style={{ color: 'var(--muted-foreground)' }}>
+                    {nextToReturn ? (
+                      <>
+                        Next to return: <strong className="font-mono text-foreground">{nextToReturn.account.email}</strong>
+                        {nextGroup && <span> ({nextGroup.groupName})</span>} in {formatDuration(nextToReturn.status.soonestAvailableMs)}.
+                      </>
+                    ) : (
+                      "All accounts are currently on cooldown."
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border/40 overflow-y-auto" style={{ maxHeight: '260px' }}>
+                  {readyAccs.map(({ account: acc, status }) => {
+                    const readyGroups = status.groups.filter(g => g.isReady).map(g => g.groupName).join(', ')
+                    return (
+                      <li key={acc.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/20 transition-colors">
+                        <div className="min-w-0 mr-3">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold truncate" style={{ color: 'var(--foreground)' }}>{acc.email}</p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                navigator.clipboard.writeText(acc.email)
+                                addToast({ type: 'success', message: 'Email copied to clipboard' })
+                              }}
+                              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title="Copy email"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'var(--muted-foreground)' }}>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                              style={{ background: 'color-mix(in srgb, var(--ap-accent) 12%, transparent)', color: 'var(--ap-accent)' }}>
+                              {acc.platform}
+                            </span>
+                            {readyGroups && (
+                              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium truncate">
+                                ✓ {readyGroups}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                          <Check className="w-3 h-3 stroke-[2.5]" />
+                          <span>Ready</span>
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+
+              {/* Next Account to Return Section */}
+              <div className="mt-auto p-4 border-t border-border/70 bg-muted/20">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Next To Return</span>
+                  {nextToReturn && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 inline-flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>in {formatDuration(nextToReturn.status.soonestAvailableMs)}</span>
+                    </span>
+                  )}
+                </div>
+
+                {nextToReturn ? (
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border bg-card" style={{ borderColor: 'var(--border)' }}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-semibold truncate text-foreground">{nextToReturn.account.email}</p>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            navigator.clipboard.writeText(nextToReturn.account.email)
+                            addToast({ type: 'success', message: 'Email copied to clipboard' })
+                          }}
+                          className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+                          title="Copy email"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                        {nextToReturn.account.platform} · {nextGroup ? nextGroup.groupName : 'Cooldown ending'}
+                      </p>
+                    </div>
+                    <Link 
+                      to="/accounts" 
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border hover:bg-muted transition-colors shrink-0 text-muted-foreground hover:text-foreground"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      View
+                    </Link>
                   </div>
-                  <CountdownTimer
-                    nextDueAt={acc.token_timers?.[0]?.next_due_at}
-                    accountId={acc.id} platform={acc.platform}
-                    email={acc.email} userId={user.id}
-                  />
-                </li>
-              ))}
-            </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {accountsWithTimers.length === 0
+                      ? "No timers configured on your accounts yet."
+                      : readyAccs.length > 0
+                        ? "All accounts with timers are ready to use!"
+                        : "No cooldown timers running."}
+                  </p>
+                )}
+              </div>
+            </div>
           )}
         </Panel>
 
