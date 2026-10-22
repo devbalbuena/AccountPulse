@@ -6,7 +6,10 @@ import { useToast } from '@/context/ToastContext'
 import CountdownTimer from '@/components/CountdownTimer'
 import AccountModal from '@/components/AccountModal'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
-import { Search, Pencil, Trash2, RotateCw, Eraser, MoreVertical, Archive, Copy, Check } from 'lucide-react'
+import SetRemainingTimeModal from '@/components/SetRemainingTimeModal'
+import { addDuration, formatDuration, evaluateAccountStatus } from '@/lib/durationUtils'
+import { useNow } from '@/context/TimeContext'
+import { Search, Pencil, Trash2, RotateCw, RotateCcw, Eraser, MoreVertical, Archive, Copy, Check, Clock } from 'lucide-react'
 
 function CopyButton({ text, tooltip, className }) {
   const [copied, setCopied] = useState(false)
@@ -89,10 +92,40 @@ export default function AccountsIndex() {
   const [accountToArchive, setAccountToArchive] = useState(null)
   const [clearActivityOpen, setClearActivityOpen] = useState(false)
   const [filterType, setFilterType] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'ready' | 'cooldown'
   const [sortBy, setSortBy] = useState('soonest')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState(null)
+  const [timerToSetRemaining, setTimerToSetRemaining] = useState(null)
+  const now = useNow()
   const { addToast } = useToast()
+
+  async function handleSaveRemainingTime({ days, hours, minutes }) {
+    if (!timerToSetRemaining) return
+    const { timer, account } = timerToSetRemaining
+    const now = new Date()
+    const nextDue = addDuration(days, hours, minutes, now)
+    
+    const { error } = await supabase.from('token_timers').update({
+      next_due_at: nextDue.toISOString(),
+      last_refreshed_at: now.toISOString(),
+    }).eq('id', timer.id)
+    
+    if (error) {
+      addToast({ type: 'error', message: `Failed to update timer: ${error.message}` })
+      return
+    }
+
+    const totalMs = ((days * 24 + hours) * 60 + minutes) * 60 * 1000
+    addToast({
+      type: 'success',
+      message: `${timer.model_name || 'Timer'} will be ready in ${formatDuration(totalMs)}`
+    })
+
+    await insertNotif(`${account.email} (${timer.model_name || 'Timer'}) remaining time set to ${formatDuration(totalMs)}`)
+    setTimerToSetRemaining(null)
+    load()
+  }
 
   const load = useCallback(async () => {
     const [{ data: acc }, { data: notifs }] = await Promise.all([
@@ -123,47 +156,51 @@ export default function AccountsIndex() {
     load()
   }
 
-  async function handleMarkRefreshed(timerId, intervalHours, email, modelName) {
+  async function handleDrainedNow(timer, account) {
+    if (!timer || !timer.interval_hours) {
+      addToast({ type: 'info', message: 'No interval hours configured on this timer (use Clock to set time).' })
+      return
+    }
     const now = new Date()
-    const nextDue = new Date(now.getTime() + intervalHours * 3600000)
-    await supabase.from('token_timers').update({ last_refreshed_at: now.toISOString(), next_due_at: nextDue.toISOString() }).eq('id', timerId)
-    await insertNotif(`${email} (${modelName}) token refreshed`)
-    load()
-  }
+    const cooldownMs = (timer.interval_hours || 0) * 3600000
+    const nextDue = new Date(now.getTime() + cooldownMs)
+    const prevNextDueAt = timer.next_due_at
+    const prevLastRefreshedAt = timer.last_refreshed_at
 
-  async function handleBulkRefresh() {
-    const expiredTimers = []
-    accounts.forEach(a => {
-      const t = a.token_timers?.[0]
-      if (t && t.next_due_at && new Date(t.next_due_at) <= Date.now()) {
-        expiredTimers.push({ ...t, email: a.email })
+    const { error } = await supabase.from('token_timers').update({
+      last_refreshed_at: now.toISOString(),
+      next_due_at: nextDue.toISOString()
+    }).eq('id', timer.id)
+
+    if (error) {
+      addToast({ type: 'error', message: `Failed to set cooldown: ${error.message}` })
+      return
+    }
+
+    const durationText = formatDuration(cooldownMs)
+    addToast({
+      type: 'success',
+      message: `${timer.model_name || 'Timer'} will be ready in ${durationText}`,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          await supabase.from('token_timers').update({
+            next_due_at: prevNextDueAt,
+            last_refreshed_at: prevLastRefreshedAt
+          }).eq('id', timer.id)
+          addToast({ type: 'info', message: `Restored ${timer.model_name || 'Timer'} previous state` })
+          load()
+        }
       }
     })
 
-    if (expiredTimers.length === 0) return
-
-    setLoading(true)
-    const now = new Date()
-
-    const updates = expiredTimers.map(t => {
-      const nextDue = new Date(now.getTime() + (t.interval_hours || 0) * 3600000)
-      return supabase.from('token_timers')
-        .update({ 
-          last_refreshed_at: now.toISOString(), 
-          next_due_at: nextDue.toISOString() 
-        })
-        .eq('id', t.id)
-    })
-    
-    await Promise.all(updates)
-    await insertNotif(`Bulk refresh: ${expiredTimers.length} expired tokens marked as refreshed`)
-    
-    addToast({
-      type: 'success',
-      message: `✓ ${expiredTimers.length} tokens refreshed successfully`
-    })
-
+    await insertNotif(`${account.email} (${timer.model_name || 'Timer'}) marked as drained (${durationText} cooldown)`)
     load()
+  }
+
+  // Backwards compatibility for existing callers
+  async function handleMarkRefreshed(timerId, intervalHours, email, modelName) {
+    return handleDrainedNow({ id: timerId, interval_hours: intervalHours, model_name: modelName }, { email })
   }
 
   async function executeClearActivity() {
@@ -188,18 +225,52 @@ export default function AccountsIndex() {
     </div>
   )
 
+  let allCount = 0
+  let readyCount = 0
+  let cooldownCount = 0
+
+  accounts.forEach(a => {
+    allCount++
+    const { isReady, hasTimers } = evaluateAccountStatus(a, now)
+    if (hasTimers !== false) {
+      if (isReady) readyCount++
+      else cooldownCount++
+    }
+  })
+
   const filteredAccounts = accounts.filter(acc => {
     const matchesSearch = acc.email.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           acc.platform.toLowerCase().includes(searchQuery.toLowerCase())
     if (!matchesSearch) return false
-    if (filterType !== 'All') return acc.type === filterType
+    if (filterType !== 'All' && acc.type !== filterType) return false
+
+    if (statusFilter !== 'all') {
+      const { isReady, hasTimers } = evaluateAccountStatus(acc, now)
+      // Accounts with no timers appear only under "All"
+      if (hasTimers === false) return false
+      if (statusFilter === 'ready' && !isReady) return false
+      if (statusFilter === 'cooldown' && isReady) return false
+    }
     return true
   }).sort((a, b) => {
     if (sortBy === 'soonest' || sortBy === 'latest') {
-      const aTime = a.token_timers?.[0]?.next_due_at ? new Date(a.token_timers[0].next_due_at).getTime() : Infinity
-      const bTime = b.token_timers?.[0]?.next_due_at ? new Date(b.token_timers[0].next_due_at).getTime() : Infinity
-      if (aTime === bTime) return 0
-      return sortBy === 'soonest' ? aTime - bTime : bTime - aTime
+      const aHasTimers = a.token_timers && a.token_timers.some(t => !t.deleted_at)
+      const bHasTimers = b.token_timers && b.token_timers.some(t => !t.deleted_at)
+
+      // Accounts with no timers always sort last and maintain stable secondary order
+      if (!aHasTimers && !bHasTimers) return a.email.localeCompare(b.email)
+      if (!aHasTimers) return 1
+      if (!bHasTimers) return -1
+
+      const aStatus = evaluateAccountStatus(a, now)
+      const bStatus = evaluateAccountStatus(b, now)
+      const aTime = aStatus.isReady ? 0 : aStatus.soonestAvailableMs
+      const bTime = bStatus.isReady ? 0 : bStatus.soonestAvailableMs
+
+      if (aTime !== bTime) {
+        return sortBy === 'soonest' ? aTime - bTime : bTime - aTime
+      }
+      return a.email.localeCompare(b.email)
     }
     if (sortBy === 'recent') {
       return new Date(b.created_at) - new Date(a.created_at)
@@ -217,15 +288,11 @@ export default function AccountsIndex() {
   })
 
   const types = ['All', ...new Set(accounts.map(a => a.type))]
-  const expiredCountTotal = accounts.reduce((acc, a) => {
-    const t = a.token_timers?.[0]
-    return acc + (t && t.next_due_at && new Date(t.next_due_at) <= Date.now() ? 1 : 0)
-  }, 0)
 
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* ── Top Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 shrink-0">
         <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Accounts</h2>
         <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
           <div className="relative w-full sm:w-64">
@@ -254,7 +321,7 @@ export default function AccountsIndex() {
             style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
           >
             <option value="soonest">Sort: Soonest</option>
-            <option value="latest">Latest to Expire</option>
+            <option value="latest">Latest Cooldown</option>
             <option value="recent">Recently Added</option>
             <option value="oldest">Oldest First</option>
             <option value="asc">Alphabetical (A-Z)</option>
@@ -272,23 +339,46 @@ export default function AccountsIndex() {
         </div>
       </div>
 
-      {expiredCountTotal >= 2 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-[10px] mb-6 animate-in slide-in-from-top-2 fade-in"
-          style={{
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.2)'
-          }}>
-          <p className="text-[#ef4444] font-bold text-sm flex items-center gap-2">
-            <span>⚠</span> {expiredCountTotal} expired tokens detected
-          </p>
-          <button 
-            onClick={handleBulkRefresh}
-            className="px-4 py-2 rounded-md bg-[#ef4444] hover:bg-[#dc2626] text-white text-xs font-bold transition-colors shadow-sm shrink-0"
+      {/* ── Status Tabs (All / Ready now / On cooldown) ── */}
+      <div className="flex items-center gap-2 mb-5 shrink-0 overflow-x-auto pb-1">
+        <div className="inline-flex p-1 rounded-xl border bg-muted/30" style={{ borderColor: 'var(--border)' }}>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              statusFilter === 'all'
+                ? 'bg-card text-foreground shadow-sm border border-border'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
           >
-            Mark All Expired as Refreshed
+            All <span className="opacity-75 ml-1 font-mono">({allCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('ready')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              statusFilter === 'ready'
+                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm font-bold'
+                : 'text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            Ready now <span className="opacity-75 ml-0.5 font-mono">({readyCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('cooldown')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              statusFilter === 'cooldown'
+                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-sm font-bold'
+                : 'text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            On cooldown <span className="opacity-75 ml-0.5 font-mono">({cooldownCount})</span>
           </button>
         </div>
-      )}
+      </div>
 
       {/* ── Content Layout ── */}
       <div className={`transition-all duration-700 flex flex-col lg:flex-row items-start gap-5 flex-1 min-h-0 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
@@ -305,32 +395,47 @@ export default function AccountsIndex() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredAccounts.map(acc => {
-                const timers = acc.token_timers?.slice(0, 2) || []
                 const color = getPlatformColor(acc.platform)
                 const initial = acc.platform?.[0]?.toUpperCase() || '?'
+                const accountStatus = evaluateAccountStatus(acc, now)
+                const groups = accountStatus.groups || []
 
                 return (
                   <div key={acc.id} 
                     className="rounded-2xl border flex flex-col p-5 transition-all duration-300 relative group overflow-hidden"
                     style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
                   >
-                    {/* Top Row with Platform, Subtitle and CardMenu */}
-                    <div className="flex items-start justify-between mb-5 group/header">
-                      <div className="flex items-start gap-3.5 min-w-0 pr-4">
+                    {/* Top Row with Platform, Type, Email + Copy Button, and CardMenu */}
+                    <div className="flex items-start justify-between mb-4 group/header">
+                      <div className="flex items-start gap-3 min-w-0 pr-2">
                         {acc.icon_url ? (
-                          <img src={acc.icon_url} alt={acc.platform} className="w-[42px] h-[42px] rounded-[10px] object-cover shrink-0" />
+                          <img src={acc.icon_url} alt={acc.platform} className="w-[42px] h-[42px] rounded-[10px] object-cover shrink-0 border border-border/50" />
                         ) : (
                           <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center shrink-0 text-white font-bold text-lg shadow-sm" style={{ background: color }}>
                             {initial}
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="font-semibold truncate text-[15px] leading-tight" style={{ color: 'var(--foreground)' }}>{acc.platform}</p>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{acc.email}</p>
-                            <CopyButton text={acc.email} tooltip="Copy email" className="opacity-0 group-hover/header:opacity-100" />
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-semibold truncate text-[15px] leading-tight" style={{ color: 'var(--foreground)' }}>{acc.platform}</p>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--muted)', color: 'var(--muted-foreground)' }}>{acc.type}</span>
                           </div>
-                          <p className="text-[11px] truncate mt-0.5" style={{ color: 'var(--muted-foreground)', opacity: 0.8 }}>{acc.type}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <p className="text-xs truncate font-mono" style={{ color: 'var(--muted-foreground)' }} title={acc.email}>{acc.email}</p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                navigator.clipboard.writeText(acc.email)
+                                addToast({ type: 'success', message: 'Email copied to clipboard' })
+                              }}
+                              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title="Copy email to clipboard"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                       <div className="shrink-0 -mr-2 relative top-[-2px]">
@@ -341,80 +446,114 @@ export default function AccountsIndex() {
                       </div>
                     </div>
 
-                    {/* Stack of Sub-Timers */}
-                    <div className="flex flex-col gap-3">
-                      {timers.length === 0 && (
-                        <p className="text-xs text-center py-4" style={{ color: 'var(--muted-foreground)' }}>No timers configured</p>
-                      )}
-                      
-                      {timers.map(timer => {
-                        const modelColor = timer.color || '#2563eb'
-                        let progressPct = 0
-                        let timerExpired = false
-                        let timerExpiring = false
+                    {/* Stack of Sub-Timer Groups */}
+                    {groups.length === 0 ? (
+                      <div className="py-4 text-center rounded-xl border border-dashed border-border/60 bg-muted/20">
+                        <p className="text-xs text-muted-foreground">No timers configured</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2.5">
+                        {groups.map(group => {
+                          const isGroupReady = group.isReady
 
-                        if (timer?.next_due_at) {
-                          const now = new Date()
-                          const due = new Date(timer.next_due_at)
-                          const diff = due - now
-                          const totalMs = (timer.interval_hours || 0) * 3600000
-                          progressPct = totalMs > 0 ? Math.max(0, Math.min(100, (diff / totalMs) * 100)) : 0
-                          timerExpired = diff <= 0
-                          timerExpiring = !timerExpired && diff <= 86400000
-                        }
-
-                        // Progress bar color: use model's own color normally, amber when expiring, red when expired
-                        const progColor = timerExpired ? '#ef4444' : timerExpiring ? '#f59e0b' : modelColor
-
-                        return (
-                          <div key={timer.id} className="p-3 rounded-xl border flex flex-col gap-2"
-                            style={{
-                              borderColor: `color-mix(in srgb, ${modelColor} 20%, var(--border))`,
-                              background: `color-mix(in srgb, ${modelColor} 5%, var(--muted)/30%)`,
-                            }}>
-                            <div className="flex items-center justify-between group/model">
-                              {/* Model name in its own color */}
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <p className="text-xs font-bold truncate pr-2" style={{ color: modelColor }}>
-                                  {timer.model_name || 'Model'}
-                                </p>
-                              </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                {/* Countdown — colored text */}
-                                <span style={{ color: timerExpired ? '#ef4444' : timerExpiring ? '#f59e0b' : modelColor }}>
-                                  <CountdownTimer
-                                    nextDueAt={timer?.next_due_at}
-                                    accountId={acc.id} platform={acc.platform} email={acc.email} userId={user.id} modelName={timer.model_name}
-                                    color={progColor}
-                                  />
+                          return (
+                            <div 
+                              key={group.groupName} 
+                              className="p-2.5 rounded-xl border flex flex-col gap-2 bg-card/60 transition-all hover:border-border"
+                              style={{ borderColor: 'var(--border)' }}
+                            >
+                              {/* Group Header: Group Name + FIXED COLOR Status Chip */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-bold truncate text-foreground">
+                                  {group.groupName}
                                 </span>
-                                {/* Refresh button — colored icon */}
-                                <button onClick={() => handleMarkRefreshed(timer.id, timer.interval_hours, acc.email, timer.model_name)}
-                                  className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
-                                  style={{ color: modelColor }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = `color-mix(in srgb, ${modelColor} 15%, transparent)` }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                                  title="Refresh token">
-                                  <RotateCw className="w-3 h-3" />
-                                </button>
-                                
-                                <CopyButton text={timer.model_name || 'Model'} tooltip="Copy model name" className="opacity-0 group-hover/model:opacity-100" />
+
+                                {/* Status Chip: FIXED COLORS (Green for Ready, Amber for Cooldown) */}
+                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 border shrink-0 ${
+                                  isGroupReady
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                                }`}>
+                                  {isGroupReady ? (
+                                    <>
+                                      <Check className="w-3 h-3 stroke-[2.5]" />
+                                      <span>Ready</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Clock className="w-3 h-3" />
+                                      <span>{group.formatted}</span>
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+
+                              {/* Individual Timers in this Group */}
+                              <div className="space-y-1.5 pt-1.5 border-t border-border/40">
+                                {group.timers.map(timer => {
+                                  const modelColor = timer.color || '#2563eb'
+                                  const hasInterval = (timer.interval_hours || 0) > 0
+
+                                  return (
+                                    <div key={timer.id} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-muted/40 transition-colors group/timer">
+                                      {/* Timer name with model's own color dot ONLY */}
+                                      <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                                        <span 
+                                          className="w-2 h-2 rounded-full shrink-0" 
+                                          style={{ backgroundColor: modelColor }} 
+                                          title={`Model color: ${modelColor}`} 
+                                        />
+                                        <span className="truncate text-muted-foreground font-medium text-[11px]" title={timer.model_name}>
+                                          {timer.model_name || 'Timer'}
+                                        </span>
+                                      </div>
+
+                                      {/* Actions & Countdown */}
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-[11px] font-mono tabular-nums">
+                                          <CountdownTimer
+                                            nextDueAt={timer.next_due_at}
+                                            accountId={acc.id}
+                                            platform={acc.platform}
+                                            email={acc.email}
+                                            userId={user.id}
+                                            modelName={timer.model_name}
+                                          />
+                                        </span>
+
+                                        {/* Set remaining time button */}
+                                        <button 
+                                          onClick={() => setTimerToSetRemaining({ timer, account: acc })}
+                                          className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                          title="Set remaining time"
+                                        >
+                                          <Clock className="w-3 h-3" />
+                                        </button>
+
+                                        {/* Drained now (start cooldown) button */}
+                                        <button 
+                                          onClick={() => hasInterval && handleDrainedNow(timer, acc)}
+                                          disabled={!hasInterval}
+                                          className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${
+                                            hasInterval 
+                                              ? 'text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer' 
+                                              : 'opacity-30 cursor-not-allowed'
+                                          }`}
+                                          title={hasInterval ? "Drained now (start cooldown)" : "Cannot drain: no interval hours configured (use Clock instead)"}
+                                        >
+                                          <RotateCcw className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
                             </div>
-
-                            {/* Progress Bar in model's color */}
-                            <div className="w-full h-1.5 rounded-full overflow-hidden"
-                              style={{ background: `color-mix(in srgb, ${modelColor} 15%, var(--border))` }}>
-                              <div className="h-full rounded-full transition-all duration-1000 ease-linear"
-                                style={{ width: `${progressPct}%`, background: progColor }} />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-
                 )
               })}
             </div>
@@ -510,6 +649,13 @@ export default function AccountsIndex() {
         confirmText="Clear History"
         confirmPhrase="clear"
         onConfirm={executeClearActivity}
+      />
+
+      <SetRemainingTimeModal
+        isOpen={!!timerToSetRemaining}
+        onClose={() => setTimerToSetRemaining(null)}
+        timer={timerToSetRemaining?.timer}
+        onSave={handleSaveRemainingTime}
       />
     </div>
   )
