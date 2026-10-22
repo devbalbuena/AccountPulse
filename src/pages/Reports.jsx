@@ -117,10 +117,10 @@ function computeTimerStatus(timer) {
   if (!timer) return { label: 'No Timer', color: '#94a3b8' }
   const now = new Date()
   const due = new Date(timer.next_due_at)
-  if (now > due) return { label: 'Expired', color: '#ef4444' }
+  if (now >= due) return { label: 'Ready', color: '#10b981' }
   const hoursLeft = (due - now) / 3600000
-  if (hoursLeft <= 24) return { label: 'Expiring', color: '#f59e0b' }
-  return { label: 'Active', color: '#22c55e' }
+  if (hoursLeft <= 24) return { label: 'Ending Soon', color: '#f59e0b' }
+  return { label: 'On Cooldown', color: '#64748b' }
 }
 
 function computeTimeLeft(timer) {
