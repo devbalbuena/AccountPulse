@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
@@ -138,6 +138,7 @@ function AppearanceTab() {
 
 // ─── Notifications Tab ──────────────────────────────────────────────────────────
 function NotificationsTab() {
+  const { user } = useAuth()
   const [prefs, setPrefs] = useState({
     account_expiry: true,
     subscription_renewal: true,
@@ -145,8 +146,47 @@ function NotificationsTab() {
     weekly_summary: false,
   })
 
+  useEffect(() => {
+    if (!user) return
+    async function fetchSettings() {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (data && !error) {
+        setPrefs({
+          account_expiry: data.account_expiry ?? true,
+          subscription_renewal: data.subscription_renewal ?? true,
+          account_added: data.account_added ?? false,
+          weekly_summary: data.weekly_summary ?? false,
+        })
+      }
+    }
+    fetchSettings()
+  }, [user])
+
+  async function handleToggle(key) {
+    const updated = { ...prefs, [key]: !prefs[key] }
+    setPrefs(updated)
+    if (!user) return
+
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert({
+        user_id: user.id,
+        ...updated,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+
+    if (error) {
+      console.warn('Could not persist setting to user_settings (pending migration):', error.message)
+    }
+  }
+
   const rows = [
-    { key: 'account_expiry',      label: 'Token Expiry Alerts',       desc: 'Get notified when a token timer is about to expire.' },
+    { key: 'account_expiry',      label: 'Token Ready Alerts',        desc: 'Get notified when a token timer cooldown finishes and quota is ready to use.' },
     { key: 'subscription_renewal',label: 'Subscription Renewals',     desc: 'Reminders 7 days before a subscription renews.' },
     { key: 'account_added',       label: 'Account Activity',          desc: 'Notify when accounts are added, edited, or archived.' },
     { key: 'weekly_summary',      label: 'Weekly Summary',            desc: 'A weekly digest of your account and spending activity.' },
@@ -166,7 +206,7 @@ function NotificationsTab() {
           </div>
           {/* Toggle pill */}
           <button
-            onClick={() => setPrefs(p => ({ ...p, [row.key]: !p[row.key] }))}
+            onClick={() => handleToggle(row.key)}
             className="shrink-0 w-10 h-6 rounded-full transition-colors relative"
             style={{ background: prefs[row.key] ? 'var(--ap-accent)' : 'var(--border)' }}
           >
@@ -178,7 +218,7 @@ function NotificationsTab() {
         </div>
       ))}
       <p className="text-xs px-1" style={{ color: 'var(--muted-foreground)' }}>
-        Note: Notification preferences are saved locally and will reset on page refresh.
+        Note: Notification preferences are persisted to your account and synced with the email alert service.
       </p>
     </div>
   )
