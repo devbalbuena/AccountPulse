@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ImageIcon, Plus, Trash2, Clock, AlertTriangle } from 'lucide-react'
+import { ImageIcon, Plus, Trash2, Clock, AlertTriangle, Sparkles, Bell } from 'lucide-react'
+import { TIMER_PRESETS, ANTIGRAVITY_4_PRESETS, createTimerFromPreset } from '@/lib/timerPresets'
 
 const inputCls = "w-full px-3.5 py-2.5 rounded-lg text-sm bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
 const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5"
@@ -41,6 +42,7 @@ function emptyTimer() {
   return {
     id: null,
     model_name: 'Model',
+    group_name: '',
     color: '#2563eb',
     interval_days: '',
     interval_hours: '',
@@ -49,6 +51,8 @@ function emptyTimer() {
     // originalNextDueAt is preserved if interval did NOT change
     originalNextDueAt: null,
     showColorPicker: false,
+    presetId: '',
+    notify_on_ready: false,
   }
 }
 
@@ -56,7 +60,7 @@ function emptyTimer() {
 function formatRemaining(nextDueAt) {
   if (!nextDueAt) return null
   const diff = new Date(nextDueAt) - new Date()
-  if (diff <= 0) return { text: 'Expired', expired: true }
+  if (diff <= 0) return { text: 'Ready', ready: true }
   const totalMin = Math.floor(diff / 60000)
   const d = Math.floor(totalMin / 1440)
   const h = Math.floor((totalMin % 1440) / 60)
@@ -65,7 +69,7 @@ function formatRemaining(nextDueAt) {
   if (d > 0) parts.push(`${d}d`)
   if (h > 0) parts.push(`${h}h`)
   if (m > 0 || parts.length === 0) parts.push(`${m}m`)
-  return { text: parts.join(' ') + ' remaining', expired: false }
+  return { text: parts.join(' ') + ' cooldown remaining', ready: false }
 }
 
 // Inline color swatch picker for a single model
@@ -139,6 +143,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
           return {
             id: t.id,
             model_name: t.model_name || 'Model',
+            group_name: t.group_name || '',
             color: t.color || '#2563eb',
             // Displayed as D/H split for UX
             interval_days: Math.floor(totalHours / 24) || '',
@@ -147,6 +152,8 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
             originalIntervalHours: totalHours,
             originalNextDueAt: t.next_due_at || null,
             showColorPicker: false,
+            presetId: '',
+            notify_on_ready: t.notify_on_ready ?? (totalHours >= 24),
           }
         })
         setTimers(loaded)
@@ -203,19 +210,26 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
       const newTotalHours = (days * 24) + hours
 
       if (newTotalHours > 0) {
-        // PART 2 FIX: only recalculate next_due_at if interval_hours actually changed
-        const intervalChanged = t.originalIntervalHours === null || newTotalHours !== t.originalIntervalHours
-
-        const nextDue = intervalChanged
-          ? new Date(Date.now() + newTotalHours * 3600000).toISOString()
-          : t.originalNextDueAt || new Date(Date.now() + newTotalHours * 3600000).toISOString()
+        let nextDue
+        if (!t.id) {
+          // Requirement: New timers start as Ready (next_due_at = now, last_refreshed_at = null)
+          nextDue = new Date().toISOString()
+        } else {
+          // Existing timers: ALWAYS preserve originalNextDueAt, even when interval_hours is edited
+          nextDue = t.originalNextDueAt || new Date().toISOString()
+        }
 
         const timerData = {
           account_id: accId,
           model_name: t.model_name,
+          group_name: t.group_name || null,
           color: t.color || '#2563eb',
           interval_hours: newTotalHours,
           next_due_at: nextDue,
+          notify_on_ready: Boolean(t.notify_on_ready),
+        }
+        if (!t.id) {
+          timerData.last_refreshed_at = null
         }
 
         if (t.id) {
@@ -250,6 +264,76 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
       const next = [...prev]
       next[index] = { ...next[index], [field]: value }
       return next
+    })
+  }
+
+  function handleSelectPreset(index, presetId) {
+    const preset = TIMER_PRESETS.find(p => p.id === presetId)
+    if (!preset) return
+
+    setTimers(prev => {
+      const next = [...prev]
+      const groupName = preset.group_name || next[index].group_name
+      const notify = preset.notify_on_ready ?? (preset.total_hours >= 24)
+      next[index] = {
+        ...next[index],
+        presetId: preset.id,
+        model_name: preset.model_name || next[index].model_name,
+        group_name: groupName,
+        interval_days: preset.interval_days !== undefined ? String(preset.interval_days) : next[index].interval_days,
+        interval_hours: preset.interval_hours !== undefined ? String(preset.interval_hours) : next[index].interval_hours,
+        color: preset.color || next[index].color,
+        notify_on_ready: notify,
+      }
+      // Synchronize notify_on_ready across other timers in the same group
+      if (groupName) {
+        for (let i = 0; i < next.length; i++) {
+          if ((next[i].group_name || next[i].model_name) === groupName) {
+            next[i].notify_on_ready = notify
+          }
+        }
+      }
+      return next
+    })
+  }
+
+  function handleToggleGroupNotification(targetGroup, enabled) {
+    const key = (targetGroup || '').trim().toLowerCase()
+    setTimers(prev => prev.map(t => {
+      const g = (t.group_name || t.model_name || '').trim().toLowerCase()
+      if (g === key || (!key && !g)) {
+        return { ...t, notify_on_ready: enabled }
+      }
+      return t
+    }))
+  }
+
+  function handleAddAntigravityBundle() {
+    setTimers(prev => {
+      const isSingleDefault = prev.length === 1 && !prev[0].interval_days && !prev[0].interval_hours && (prev[0].model_name === 'Model' || !prev[0].model_name)
+      const baseTimers = isSingleDefault ? [] : prev
+
+      // Skip any preset whose model_name or group_name (with model fallback) already exists
+      const toAdd = ANTIGRAVITY_4_PRESETS.filter(p => {
+        const alreadyExists = baseTimers.some(existing => {
+          const existingGroup = (existing.group_name || existing.model_name || '').trim().toLowerCase()
+          const presetGroup = (p.group_name || p.model_name || '').trim().toLowerCase()
+          const existingModel = (existing.model_name || '').trim().toLowerCase()
+          const presetModel = p.model_name.toLowerCase()
+          return existingModel === presetModel || (existingGroup === presetGroup && existingModel === presetModel)
+        })
+        return !alreadyExists
+      }).map(p => ({
+        ...createTimerFromPreset(p),
+        id: null,
+        originalIntervalHours: null,
+        originalNextDueAt: null,
+        // Since Gemini and Claude/GPT are weekly groups in the bundle, their group alert defaults to true
+        notify_on_ready: true,
+      }))
+
+      if (toAdd.length === 0) return prev
+      return [...baseTimers, ...toAdd]
     })
   }
 
@@ -318,14 +402,21 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
 
           {/* ── Timers section ── */}
           <div className="border-t border-border/50 pt-5 mt-1 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Token Refresh Timers <span className="font-normal normal-case">(optional)</span>
+                Token Cooldown Timers <span className="font-normal normal-case">(optional)</span>
               </p>
-              <button type="button" onClick={() => setTimers(t => [...t, emptyTimer()])}
-                className="flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-400 transition-colors">
-                <Plus className="w-3 h-3" /> Add Model
-              </button>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={handleAddAntigravityBundle}
+                  className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors"
+                  title="Adds Gemini Weekly, Gemini 5h, Claude/GPT Weekly, and Claude/GPT 5h">
+                  <Sparkles className="w-3 h-3" /> Add 4 Antigravity Timers
+                </button>
+                <button type="button" onClick={() => setTimers(t => [...t, emptyTimer()])}
+                  className="flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-400 transition-colors">
+                  <Plus className="w-3 h-3" /> Add Model
+                </button>
+              </div>
             </div>
 
             {timers.map((t, idx) => (
@@ -338,22 +429,44 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
                   </button>
                 )}
 
-                {/* Model Name + Color swatch */}
-                <div className="pr-8">
-                  <label className={labelCls}>Model Name</label>
-                  <div className="flex items-center gap-2">
-                    <ColorPicker
-                      color={t.color || '#2563eb'}
-                      onChange={c => updateTimer(idx, 'color', c)}
-                    />
-                    <input type="text" className={`${inputCls} flex-1`} placeholder="e.g. Claude 3.5 Sonnet"
-                      value={t.model_name} onChange={e => updateTimer(idx, 'model_name', e.target.value)} />
+                {/* Preset selector */}
+                <div>
+                  <label className={labelCls}>Preset Template</label>
+                  <select 
+                    className={`${inputCls} py-2 text-xs`}
+                    value={t.presetId || ''}
+                    onChange={e => handleSelectPreset(idx, e.target.value)}
+                  >
+                    <option value="">Choose preset (or customize below)...</option>
+                    {TIMER_PRESETS.map(p => (
+                      <option key={p.id} value={p.id}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Model Name + Group Name + Color swatch */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-8">
+                  <div>
+                    <label className={labelCls}>Model Name</label>
+                    <div className="flex items-center gap-2">
+                      <ColorPicker
+                        color={t.color || '#2563eb'}
+                        onChange={c => updateTimer(idx, 'color', c)}
+                      />
+                      <input type="text" className={`${inputCls} flex-1`} placeholder="e.g. Gemini Weekly"
+                        value={t.model_name} onChange={e => updateTimer(idx, 'model_name', e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Group Name <span className="text-[10px] lowercase text-muted-foreground">(e.g. Gemini)</span></label>
+                    <input type="text" className={inputCls} placeholder="e.g. Gemini, Claude / GPT"
+                      value={t.group_name || ''} onChange={e => updateTimer(idx, 'group_name', e.target.value)} />
                   </div>
                 </div>
 
                 {/* Interval inputs */}
                 <div>
-                  <label className={labelCls}>Refresh Every</label>
+                  <label className={labelCls}>Reset / Cooldown Interval</label>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <input type="number" min="0" className={inputCls} placeholder="Days"
@@ -366,6 +479,31 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
                       <span className="text-[10px] text-muted-foreground mt-1 block text-center">hours</span>
                     </div>
                   </div>
+                </div>
+
+                {/* ── Per-Group Notification Toggle ── */}
+                <div className="flex items-center justify-between pt-2.5 pb-0.5 border-t border-border/40">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Bell className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                    <span className="text-xs font-medium text-foreground truncate">
+                      Email alert when group is ready
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono truncate">
+                      ({t.group_name || t.model_name || 'Group'})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleGroupNotification(t.group_name || t.model_name, !t.notify_on_ready)}
+                    className="shrink-0 w-8 h-4.5 rounded-full transition-colors relative"
+                    style={{ background: t.notify_on_ready ? 'var(--ap-accent)' : 'var(--border)' }}
+                    title={t.notify_on_ready ? "Email notification enabled for this group" : "Email notification disabled for this group"}
+                  >
+                    <span
+                      className="absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
+                      style={{ transform: t.notify_on_ready ? 'translateX(16px)' : 'translateX(2px)' }}
+                    />
+                  </button>
                 </div>
 
                 {/* ── Current timer status (read-only, only shown when editing) ── */}
@@ -391,17 +529,6 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
                             <span className="font-semibold" style={{ color: remaining.expired ? '#ef4444' : 'var(--foreground)' }}>
                               {remaining.text}
                             </span>
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Amber warning when interval is changed */}
-                      {intervalChanged && (
-                        <div className="flex items-start gap-1.5 px-2.5 py-2 rounded-lg"
-                          style={{ background: 'color-mix(in srgb, #f59e0b 10%, var(--muted))', border: '1px solid color-mix(in srgb, #f59e0b 30%, transparent)' }}>
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" style={{ color: '#f59e0b' }} />
-                          <span className="text-[11px] leading-snug" style={{ color: '#d97706' }}>
-                            Changing the interval will reset this timer to the new duration when you save.
                           </span>
                         </div>
                       )}
