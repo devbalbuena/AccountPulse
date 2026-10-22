@@ -61,7 +61,7 @@ export default function Features() {
             { 
               icon: <Clock className="w-5 h-5 text-cyan-400" />, 
               title: 'Token Timers', 
-              desc: 'Track when your API tokens expire with live countdown clocks. Never get locked out again.' 
+              desc: 'Track quota cooldowns and know the moment your tokens are ready to use with live countdown clocks.' 
             },
             { 
               icon: <CreditCard className="w-5 h-5 text-blue-400" />, 
@@ -71,7 +71,7 @@ export default function Features() {
             { 
               icon: <Bell className="w-5 h-5 text-amber-400" />, 
               title: 'Smart Alerts', 
-              desc: 'Visual warnings when tokens are expiring in under 24 hours with color-coded status badges.' 
+              desc: 'Color-coded status chips show exactly which model groups are ready now or on cooldown.' 
             },
             { 
               icon: <Archive className="w-5 h-5 text-emerald-400" />, 

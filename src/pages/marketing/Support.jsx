@@ -12,16 +12,16 @@ export default function Support() {
 
   const faqs = [
     {
-      q: "Why did my token timer reset when I edited my account?",
-      a: "Timers only reset when you click the Refresh button or change the interval duration. Editing name, email, or other fields will not affect the timer."
+      q: "Will editing an account reset my running timer?",
+      a: "No. Timers only start a new cooldown when you click the 'Drained now' button or set remaining time manually. Editing email, platform, or interval duration preserves existing countdowns."
     },
     {
       q: "How do I add multiple models to one account?",
-      a: "Open the Edit modal for any account and click 'Add Model'. Each model gets its own independent countdown timer and color."
+      a: "Open the Edit modal for any account and click 'Add Model' or use the '⚡ Add 4 Antigravity Timers' shortcut. Each model gets its own independent timer and grouping."
     },
     {
-      q: "What happens when a token expires?",
-      a: "The countdown turns red and a notification is logged. Go to the Accounts page and click the refresh button after you have renewed the token."
+      q: "What happens when a token timer finishes cooldown?",
+      a: "The status turns green with a 'Ready' chip. You can immediately use the account's quota."
     },
     {
       q: "Can I recover an archived account?",
