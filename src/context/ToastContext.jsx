@@ -26,8 +26,27 @@ function ToastItem({ toast, onDismiss }) {
     return () => clearInterval(interval)
   }, [onDismiss])
 
-  const isExpired = toast.type === 'expired'
-  const borderColor = isExpired ? '#ef4444' : '#f59e0b'
+  let borderColor = '#f59e0b'
+  let label = '⏱ Cooldown Ending Soon'
+  let subtext = 'Tap to view or dismiss'
+
+  if (toast.type === 'success') {
+    borderColor = '#10b981'
+    label = '✓ Success'
+    subtext = toast.action ? '' : 'Dismiss'
+  } else if (toast.type === 'ready') {
+    borderColor = '#10b981'
+    label = '✓ Quota Ready'
+    subtext = 'Tap to view or dismiss'
+  } else if (toast.type === 'info') {
+    borderColor = '#06b6d4'
+    label = 'ℹ Info'
+    subtext = 'Dismiss'
+  } else if (toast.type === 'error' || toast.type === 'expired') {
+    borderColor = '#ef4444'
+    label = '⚠ Error'
+    subtext = 'Tap to view or dismiss'
+  }
   
   return (
     <div 
@@ -44,14 +63,32 @@ function ToastItem({ toast, onDismiss }) {
     >
       <div className="flex-1 min-w-0">
         <p className="font-bold text-[11px] uppercase tracking-wider mb-1" style={{ color: borderColor }}>
-          {isExpired ? '⚠ Token Expired' : '⏱ Token Expiring Soon'}
+          {label}
         </p>
         <p className="font-semibold text-sm truncate" style={{ color: 'var(--foreground)' }}>
           {toast.message}
         </p>
-        <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
-          Tap to refresh or dismiss
-        </p>
+        <div className="flex items-center gap-2 mt-1">
+          {subtext && (
+            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+              {subtext}
+            </p>
+          )}
+          {toast.action && (
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                toast.action.onClick?.()
+                onDismiss()
+              }}
+              className="text-xs font-bold underline px-1.5 py-0.5 rounded hover:bg-muted transition-colors cursor-pointer"
+              style={{ color: borderColor }}
+            >
+              {toast.action.label || 'Undo'}
+            </button>
+          )}
+        </div>
       </div>
       <button 
         onClick={(e) => { e.stopPropagation(); onDismiss() }}
