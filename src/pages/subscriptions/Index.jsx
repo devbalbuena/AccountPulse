@@ -3,25 +3,47 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
-import { Search, MoreVertical, Pencil, Archive, History, Download, CreditCard, Copy, Check, PauseCircle, Calendar, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
+import {
+  Search,
+  MoreVertical,
+  Pencil,
+  Archive,
+  History,
+  Download,
+  CreditCard,
+  Copy,
+  Check,
+  PauseCircle,
+  PlayCircle,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  X,
+  Plus,
+  LayoutGrid,
+  List,
+  AlertCircle,
+  Clock,
+  Sparkles,
+} from 'lucide-react'
 
-const CATEGORY_COLORS = {
+export const CATEGORY_COLORS = {
   'Entertainment': '#ec4899',
   'Productivity': '#3b82f6',
   'Storage': '#06b6d4',
-  'Dev Tools': '#a855f7',
+  'Dev Tools': '#8b5cf6',
   'Design': '#f97316',
   'Security': '#ef4444',
   'Finance': '#10b981',
-  'Health': '#34d399',
+  'Health': '#14b8a6',
   'Education': '#f59e0b',
-  'Other': '#6b7280'
+  'Other': '#64748b',
 }
 
 const PALETTE = ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6']
-function getPlatformColor(name) {
-  if (!name) return PALETTE[0]
+function getPlatformColor(name = '') {
   let sum = 0
   for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i)
   return PALETTE[sum % PALETTE.length]
@@ -36,6 +58,7 @@ function formatDateShort(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
 function formatMonthDay(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -58,24 +81,25 @@ function advanceDate(dateStr, interval, customDays) {
 // ─── Clean Progress Bar ───
 function ProgressBar({ pct, barColor, isPaused, tooltip }) {
   const [show, setShow] = useState(false)
-  const barStyle = {
-    height: '100%',
-    borderRadius: '9999px',
-    width: `${pct}%`,
-    background: isPaused ? 'var(--muted-foreground)' : barColor,
-    transition: 'width 0.4s ease',
-  }
   return (
-    <div className="relative mb-5 mt-2">
+    <div className="relative my-2.5">
       <div
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
         className="w-full h-1.5 rounded-full bg-muted cursor-default relative overflow-hidden"
       >
-        <div style={barStyle} />
+        <div
+          style={{
+            height: '100%',
+            borderRadius: '9999px',
+            width: `${Math.max(0, Math.min(100, pct))}%`,
+            background: isPaused ? 'var(--muted-foreground)' : barColor,
+            transition: 'width 0.4s ease',
+          }}
+        />
       </div>
       {show && tooltip && (
-        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-popover border border-border text-popover-foreground text-xs px-2.5 py-1 rounded-md shadow-md whitespace-nowrap z-30 pointer-events-none">
+        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-popover border border-border text-popover-foreground text-[11px] px-2.5 py-1 rounded-md shadow-md whitespace-nowrap z-30 pointer-events-none">
           {tooltip}
         </div>
       )}
@@ -101,41 +125,51 @@ function CardMenu({ onEdit, onArchive, isPaused, onTogglePause, serviceName }) {
     e.stopPropagation()
     navigator.clipboard.writeText(serviceName)
     setCopied(true)
-    setTimeout(() => { setCopied(false); setOpen(false) }, 1500)
+    setTimeout(() => { setCopied(false); setOpen(false) }, 1400)
   }
 
   return (
     <div className="relative" ref={menuRef}>
-      <button onClick={() => setOpen(!open)}
-        className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-muted"
-        style={{ color: 'var(--muted-foreground)' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-7 h-7 rounded-md flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+        title="More options"
+      >
         <MoreVertical className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg border overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100"
-          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-          <button onClick={() => { setOpen(false); onEdit(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-            style={{ color: 'var(--foreground)' }}>
-            <Pencil className="w-4 h-4 text-muted-foreground" /> Edit
+        <div className="absolute right-0 top-full mt-1 w-44 rounded-xl shadow-lg border border-border bg-card overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100 text-xs">
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onEdit(); }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-foreground hover:bg-muted transition-colors text-left"
+          >
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" /> Edit Details
           </button>
-          <div className="h-px w-full" style={{ background: 'var(--border)' }} />
-          <button onClick={() => { setOpen(false); onTogglePause(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-            style={{ color: 'var(--foreground)' }}>
-            <PauseCircle className="w-4 h-4 text-muted-foreground" /> {isPaused ? 'Resume Subscription' : 'Pause Subscription'}
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onTogglePause(); }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-foreground hover:bg-muted transition-colors text-left"
+          >
+            {isPaused ? <PlayCircle className="w-3.5 h-3.5 text-emerald-600" /> : <PauseCircle className="w-3.5 h-3.5 text-amber-600" />}
+            {isPaused ? 'Resume' : 'Pause'}
           </button>
-          <button onClick={() => { setOpen(false); onArchive(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-red-500/10 transition-colors text-left"
-            style={{ color: '#ef4444' }}>
-            <Archive className="w-4 h-4" /> Cancel & Archive
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="w-full flex items-center gap-2 px-3 py-2 text-foreground hover:bg-muted transition-colors text-left"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+            Copy Name
           </button>
-          <div className="h-px w-full" style={{ background: 'var(--border)' }} />
-          <button onClick={handleCopy}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-            style={{ color: 'var(--foreground)' }}>
-            {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
-            Copy Service Name
+          <div className="h-px bg-border my-1" />
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onArchive(); }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-500/10 transition-colors text-left"
+          >
+            <Archive className="w-3.5 h-3.5" /> Archive
           </button>
         </div>
       )}
@@ -143,7 +177,7 @@ function CardMenu({ onEdit, onArchive, isPaused, onTogglePause, serviceName }) {
   )
 }
 
-// ─── Inline Edit Field ───
+// ─── Inline Edit Field for Budget ───
 function InlineEdit({ value, onSave, onCancel, placeholder, prefix = '' }) {
   const [val, setVal] = useState(value || '')
   const inputRef = useRef(null)
@@ -156,8 +190,8 @@ function InlineEdit({ value, onSave, onCancel, placeholder, prefix = '' }) {
   }
 
   return (
-    <div className="flex items-center gap-1 mt-1">
-      {prefix && <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{prefix}</span>}
+    <div className="flex items-center gap-1.5 mt-1">
+      {prefix && <span className="text-xs text-muted-foreground">{prefix}</span>}
       <input
         ref={inputRef}
         type="number"
@@ -166,21 +200,20 @@ function InlineEdit({ value, onSave, onCancel, placeholder, prefix = '' }) {
         onKeyDown={handleKey}
         onBlur={() => onSave(val)}
         placeholder={placeholder}
-        className="w-24 px-2 py-1 text-sm rounded-md outline-none"
-        style={{
-          background: 'var(--input-bg)',
-          border: '2px solid var(--border)',
-          color: 'var(--foreground)',
-        }}
-        onFocus={e => { e.currentTarget.style.borderColor = '#4f46e5' }}
+        className="w-24 px-2 py-1 text-xs rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
       />
-      <button onMouseDown={e => { e.preventDefault(); onSave(val) }}
-        className="p-1 rounded text-emerald-500 hover:bg-emerald-500/10 transition-colors">
+      <button
+        type="button"
+        onMouseDown={e => { e.preventDefault(); onSave(val) }}
+        className="p-1 rounded text-emerald-600 hover:bg-emerald-500/10 transition-colors"
+      >
         <Check className="w-3.5 h-3.5" />
       </button>
-      <button onMouseDown={e => { e.preventDefault(); onCancel() }}
-        className="p-1 rounded hover:bg-muted transition-colors"
-        style={{ color: 'var(--muted-foreground)' }}>
+      <button
+        type="button"
+        onMouseDown={e => { e.preventDefault(); onCancel() }}
+        className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors"
+      >
         <X className="w-3.5 h-3.5" />
       </button>
     </div>
@@ -206,13 +239,12 @@ function SubscriptionCalendar({ subs }) {
 
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
-  const startPad = (firstDay.getDay() + 6) % 7 // Make Monday = 0
+  const startPad = (firstDay.getDay() + 6) % 7 // Monday = 0
   const daysInMonth = lastDay.getDate()
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Map subs to day numbers
   const subsByDay = {}
   subs.forEach(sub => {
     if (!sub.next_billing_date) return
@@ -224,9 +256,7 @@ function SubscriptionCalendar({ subs }) {
     }
   })
 
-  // Build grid cells
   const cells = []
-  // Padding before
   for (let i = 0; i < startPad; i++) {
     const prevDay = new Date(year, month, -startPad + i + 1)
     cells.push({ date: prevDay, isCurrentMonth: false, dayNum: prevDay.getDate() })
@@ -234,7 +264,6 @@ function SubscriptionCalendar({ subs }) {
   for (let d = 1; d <= daysInMonth; d++) {
     cells.push({ date: new Date(year, month, d), isCurrentMonth: true, dayNum: d })
   }
-  // Padding after (fill to complete grid rows)
   const remaining = (7 - (cells.length % 7)) % 7
   for (let i = 1; i <= remaining; i++) {
     cells.push({ date: new Date(year, month + 1, i), isCurrentMonth: false, dayNum: i })
@@ -246,7 +275,6 @@ function SubscriptionCalendar({ subs }) {
   function goBack() { setCurrentDate(new Date(year, month - 1, 1)); setPopoverDay(null) }
   function goForward() { setCurrentDate(new Date(year, month + 1, 1)); setPopoverDay(null) }
 
-  // Legend: all subs with next_billing_date in current month, sorted
   const legendSubs = subs
     .filter(s => {
       if (!s.next_billing_date) return false
@@ -257,29 +285,34 @@ function SubscriptionCalendar({ subs }) {
 
   return (
     <div className="flex-1 flex flex-col gap-4 min-w-0">
-      <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+      <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
         {/* Calendar Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <h3 className="text-base font-bold" style={{ color: 'var(--foreground)' }}>{monthName}</h3>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+          <h3 className="text-sm font-bold text-foreground">{monthName}</h3>
           <div className="flex items-center gap-1">
-            <button onClick={goBack}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-muted"
-              style={{ color: 'var(--muted-foreground)' }}>
+            <button
+              type="button"
+              onClick={goBack}
+              className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Previous month"
+            >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button onClick={goForward}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-muted"
-              style={{ color: 'var(--muted-foreground)' }}>
+            <button
+              type="button"
+              onClick={goForward}
+              className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Next month"
+            >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Weekday Labels */}
-        <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="grid grid-cols-7 border-b border-border bg-muted/40">
           {weekdays.map(d => (
-            <div key={d} className="py-2 text-center text-[11px] font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--muted-foreground)' }}>
+            <div key={d} className="py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               {d}
             </div>
           ))}
@@ -288,52 +321,51 @@ function SubscriptionCalendar({ subs }) {
         {/* Day Grid */}
         <div className="grid grid-cols-7">
           {cells.map((cell, idx) => {
-            const isToday = cell.isCurrentMonth &&
+            const isToday =
+              cell.isCurrentMonth &&
               cell.date.getFullYear() === today.getFullYear() &&
               cell.date.getMonth() === today.getMonth() &&
               cell.date.getDate() === today.getDate()
             const daySubs = cell.isCurrentMonth ? (subsByDay[cell.dayNum] || []) : []
-            const hasMore = daySubs.length > 2
             const visible = daySubs.slice(0, 2)
+            const hasMore = daySubs.length > 2
 
             return (
               <div
                 key={idx}
                 onClick={() => daySubs.length > 0 ? setPopoverDay(cell.dayNum === popoverDay ? null : cell.dayNum) : null}
-                className="border-r border-b p-1.5 relative transition-colors"
+                className="border-r border-b border-border p-1.5 relative transition-colors"
                 style={{
-                  borderColor: 'var(--border)',
-                  minHeight: '80px',
+                  minHeight: '76px',
                   cursor: daySubs.length > 0 ? 'pointer' : 'default',
-                  background: daySubs.length > 0 ? `color-mix(in srgb, ${CATEGORY_COLORS[daySubs[0].category] || '#2563eb'} 4%, var(--card))` : 'transparent',
+                  background: daySubs.length > 0 ? 'color-mix(in srgb, var(--primary) 3%, var(--card))' : 'transparent',
                 }}
-                onMouseEnter={e => { if (!daySubs.length) e.currentTarget.style.background = 'var(--muted)/20' }}
-                onMouseLeave={e => { e.currentTarget.style.background = daySubs.length > 0 ? `color-mix(in srgb, ${CATEGORY_COLORS[daySubs[0].category] || '#2563eb'} 4%, var(--card))` : 'transparent' }}
               >
-                {/* Day number */}
                 <div className="flex justify-end mb-1">
                   <span
-                    className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-primary text-primary-foreground' : ''}`}
-                    style={{
-                      color: isToday ? 'var(--primary-foreground)' : cell.isCurrentMonth ? 'var(--foreground)' : 'var(--muted-foreground)',
-                      opacity: cell.isCurrentMonth ? 1 : 0.4,
-                    }}
+                    className={`text-[11px] font-semibold w-5 h-5 flex items-center justify-center rounded-full tabular-nums ${
+                      isToday
+                        ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                        : cell.isCurrentMonth
+                          ? 'text-foreground'
+                          : 'text-muted-foreground/40'
+                    }`}
                   >
                     {cell.dayNum}
                   </span>
                 </div>
 
-                {/* Sub pills */}
                 <div className="flex flex-col gap-0.5">
                   {visible.map(sub => {
                     const color = CATEGORY_COLORS[sub.category] || '#2563eb'
                     return (
-                      <div key={sub.id}
-                        className="truncate text-[10px] font-semibold px-1.5 py-0.5 rounded-sm"
+                      <div
+                        key={sub.id}
+                        className="truncate text-[10px] font-semibold px-1.5 py-0.5 rounded-sm border"
                         style={{
-                          background: `color-mix(in srgb, ${color} 20%, transparent)`,
+                          background: `color-mix(in srgb, ${color} 12%, transparent)`,
                           color,
-                          border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
+                          borderColor: `color-mix(in srgb, ${color} 25%, transparent)`,
                         }}
                       >
                         {sub.service_name}
@@ -341,7 +373,7 @@ function SubscriptionCalendar({ subs }) {
                     )
                   })}
                   {hasMore && (
-                    <div className="text-[9px] font-bold px-1" style={{ color: 'var(--muted-foreground)' }}>
+                    <div className="text-[9px] font-bold px-1 text-muted-foreground">
                       +{daySubs.length - 2} more
                     </div>
                   )}
@@ -351,43 +383,27 @@ function SubscriptionCalendar({ subs }) {
                 {popoverDay === cell.dayNum && cell.isCurrentMonth && (
                   <div
                     ref={popoverRef}
-                    className="absolute z-50 left-0 top-full mt-1 w-64 rounded-xl shadow-2xl border animate-in fade-in zoom-in-95 duration-150"
-                    style={{
-                      background: 'var(--card)',
-                      borderColor: 'var(--border)',
-                    }}
+                    className="absolute z-50 left-0 top-full mt-1 w-64 rounded-xl shadow-xl border border-border bg-card p-3 animate-in fade-in zoom-in-95 duration-100"
                     onClick={e => e.stopPropagation()}
                   >
-                    <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
-                      <p className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
-                        Due {new Date(year, month, cell.dayNum).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </p>
-                    </div>
-                    <div className="p-2 flex flex-col gap-1">
-                      {daySubs.map(sub => {
-                        const color = CATEGORY_COLORS[sub.category] || '#2563eb'
-                        return (
-                          <div key={sub.id} className="flex items-center justify-between px-3 py-2 rounded-lg"
-                            style={{ background: `color-mix(in srgb, ${color} 8%, var(--card))` }}>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold truncate" style={{ color: 'var(--foreground)' }}>{sub.service_name}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {sub.category && (
-                                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm text-white" style={{ background: color }}>
-                                    {sub.category}
-                                  </span>
-                                )}
-                                {sub.payment_method && (
-                                  <span className="text-[10px]" style={{ color: 'var(--muted-foreground)' }}>{sub.payment_method}</span>
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-sm font-bold shrink-0 ml-2" style={{ color: 'var(--foreground)' }}>
-                              {sub.currency} {parseFloat(sub.amount).toFixed(2)}
-                            </p>
+                    <p className="text-xs font-bold text-foreground mb-2">
+                      Due {new Date(year, month, cell.dayNum).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                    <div className="space-y-1.5">
+                      {daySubs.map(sub => (
+                        <div
+                          key={sub.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/50 text-xs"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <p className="font-semibold text-foreground truncate">{sub.service_name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{sub.payment_method || 'Card'}</p>
                           </div>
-                        )
-                      })}
+                          <span className="font-bold text-foreground tabular-nums shrink-0">
+                            {sub.currency} {parseFloat(sub.amount).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -399,18 +415,15 @@ function SubscriptionCalendar({ subs }) {
 
       {/* Legend */}
       {legendSubs.length > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-2 px-1">
+        <div className="flex flex-wrap items-center gap-3 px-1 text-xs">
+          <span className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider">This Month:</span>
           {legendSubs.map(sub => {
             const color = CATEGORY_COLORS[sub.category] || '#2563eb'
             return (
-              <div key={sub.id} className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-xs font-medium" style={{ color: 'var(--foreground)' }}>
-                  {sub.service_name}
-                </span>
-                <span className="text-[10px]" style={{ color: 'var(--muted-foreground)' }}>
-                  {formatMonthDay(sub.next_billing_date)}
-                </span>
+              <div key={sub.id} className="flex items-center gap-1.5 text-foreground">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                <span className="font-medium">{sub.service_name}</span>
+                <span className="text-muted-foreground text-[11px] tabular-nums">({formatMonthDay(sub.next_billing_date)})</span>
               </div>
             )
           })}
@@ -420,7 +433,7 @@ function SubscriptionCalendar({ subs }) {
   )
 }
 
-// ─── Main Component ───
+// ─── Main Subscriptions Component ───
 export default function SubscriptionsIndex() {
   const { user } = useAuth()
   const [subs, setSubs] = useState([])
@@ -430,45 +443,35 @@ export default function SubscriptionsIndex() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingSub, setEditingSub] = useState(null)
   const [billingHistory, setBillingHistory] = useState([])
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
 
-  // Feature 1: Filtering & Sorting
-  const [activeFilters, setActiveFilters] = useState(['All'])
+  // Status & Category filters
+  const [statusFilter, setStatusFilter] = useState('All') // 'All' | 'Due Soon' | 'Paused'
+  const [categoryFilter, setCategoryFilter] = useState('All')
   const [sortBy, setSortBy] = useState('soonest')
-  const [sortOpen, setSortOpen] = useState(false)
-  const sortRef = useRef(null)
 
-  // Feature 2: Budget
+  // Budget
   const [budgetLimit, setBudgetLimit] = useState(() => {
     const v = localStorage.getItem('accountpulse_budget_limit')
     return v ? parseFloat(v) : null
   })
-  const [usdRate, setUsdRate] = useState(() => {
-    const v = localStorage.getItem('accountpulse_usd_to_php_rate')
-    return v ? parseFloat(v) : 56
-  })
   const [editingBudget, setEditingBudget] = useState(false)
-  const [editingRate, setEditingRate] = useState(false)
 
-  // Feature 3: Calendar
-  const [viewMode, setViewMode] = useState(() => localStorage.getItem('accountpulse_sub_view') || 'grid')
+  // View Mode: Cards vs Table vs Calendar (Icon-only toggle)
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('ap-sub-view') || 'grid')
   const [subToArchive, setSubToArchive] = useState(null)
-
-  // Close sort dropdown on outside click
-  useEffect(() => {
-    function handle(e) { if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false) }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [])
 
   function toggleView(mode) {
     setViewMode(mode)
-    localStorage.setItem('accountpulse_sub_view', mode)
+    localStorage.setItem('ap-sub-view', mode)
   }
 
   const load = useCallback(async () => {
     const { data } = await supabase
-      .from('subscriptions').select('*')
-      .is('deleted_at', null).eq('user_id', user.id)
+      .from('subscriptions')
+      .select('*')
+      .is('deleted_at', null)
+      .eq('user_id', user.id)
       .order('next_billing_date', { ascending: true })
 
     if (data && data.length > 0) {
@@ -499,19 +502,15 @@ export default function SubscriptionsIndex() {
       setSubs(data || [])
     }
     setLoading(false)
-    setTimeout(() => setIsLoaded(true), 100)
+    setTimeout(() => setIsLoaded(true), 60)
   }, [user])
 
   useEffect(() => { load() }, [load])
 
-  // Billing history generation
+  // Realistic billing history based on actual user subscriptions
   useEffect(() => {
     if (subs.length === 0) { setBillingHistory([]); return }
     const history = []
-    const statuses = ['Successful', 'Successful', 'Successful', 'Pending', 'Failed']
-    const statusColors = { 'Successful': '#22c55e', 'Pending': '#f59e0b', 'Failed': '#ef4444' }
-    const channels = ['Visa ...1234', 'Mastercard ...5678', 'PayPal', 'Amex ...9012']
-
     subs.forEach(sub => {
       const nextDate = new Date(sub.next_billing_date)
       const interval = sub.billing_interval || 'monthly'
@@ -524,18 +523,21 @@ export default function SubscriptionsIndex() {
         else pastDate.setMonth(pastDate.getMonth() - i)
 
         if (pastDate < new Date()) {
-          const randomStatus = statuses[Math.floor(Math.random() * statuses.length)]
-          const randomChannel = sub.payment_method || channels[Math.floor(Math.random() * channels.length)]
           history.push({
-            id: `${sub.id}-${i}`, service_name: sub.service_name, icon_url: sub.icon_url,
-            amount: sub.amount, currency: sub.currency, paid_on: pastDate,
-            status: randomStatus, statusColor: statusColors[randomStatus], channel: randomChannel
+            id: `${sub.id}-${i}`,
+            service_name: sub.service_name,
+            icon_url: sub.icon_url,
+            category: sub.category,
+            amount: sub.amount,
+            currency: sub.currency,
+            paid_on: pastDate,
+            payment_method: sub.payment_method || 'Default Card',
           })
         }
       }
     })
     history.sort((a, b) => b.paid_on - a.paid_on)
-    setBillingHistory(history.slice(0, 12))
+    setBillingHistory(history)
   }, [subs])
 
   function handleArchiveClick(sub) {
@@ -555,7 +557,6 @@ export default function SubscriptionsIndex() {
     load()
   }
 
-  // ── Budget helpers ──
   function saveBudget(val) {
     const n = parseFloat(val)
     if (!isNaN(n) && n > 0) {
@@ -568,586 +569,700 @@ export default function SubscriptionsIndex() {
     setEditingBudget(false)
   }
 
-  function saveRate(val) {
-    const n = parseFloat(val)
-    if (!isNaN(n) && n > 0) {
-      setUsdRate(n)
-      localStorage.setItem('accountpulse_usd_to_php_rate', String(n))
-    }
-    setEditingRate(false)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <div
+          className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: 'var(--ap-accent)', borderTopColor: 'transparent' }}
+        />
+      </div>
+    )
   }
-
-  // ── Computed values ──
-  if (loading) return (
-    <div className="flex items-center justify-center h-32">
-      <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--ap-accent)', borderTopColor: 'transparent' }} />
-    </div>
-  )
 
   const activeSubsList = subs.filter(s => !s.paused_at)
-  const dueThisWeekCount = subs.filter(s => {
+  const pausedSubsList = subs.filter(s => !!s.paused_at)
+  const dueSoonSubsList = subs.filter(s => {
     const d = daysUntil(s.next_billing_date)
     return d !== null && d >= 0 && d <= 7
-  }).length
-
-  // Spend with currency conversion
-  let totalPhp = 0
-  let usedConversion = false
-  activeSubsList.forEach(s => {
-    const amt = parseFloat(s.amount || 0)
-    if ((s.currency || 'PHP') === 'PHP') {
-      totalPhp += amt
-    } else {
-      totalPhp += amt * usdRate
-      usedConversion = true
-    }
   })
 
-  // Legacy spendText for display
-  const spendByCurrency = {}
-  activeSubsList.forEach(s => {
-    const cur = s.currency || 'PHP'
-    spendByCurrency[cur] = (spendByCurrency[cur] || 0) + parseFloat(s.amount || 0)
-  })
-  const spendText = Object.entries(spendByCurrency)
-    .map(([cur, amt]) => `${cur} ${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
-    .join(' + ') || '—'
+  // Total monthly spend calculation
+  const totalMonthlySpend = activeSubsList.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0)
+  const primaryCurrency = activeSubsList[0]?.currency || subs[0]?.currency || 'PHP'
+  const annualizedSpend = totalMonthlySpend * 12
 
-  // Budget alert state
-  let budgetRatio = 0
-  let budgetStatus = 'none' // none | ok | warning | exceeded
-  if (budgetLimit) {
-    budgetRatio = totalPhp / budgetLimit
-    if (budgetRatio >= 1) budgetStatus = 'exceeded'
-    else if (budgetRatio >= 0.75) budgetStatus = 'warning'
-    else budgetStatus = 'ok'
+  // Next renewal
+  const sortedByDate = [...activeSubsList].sort((a, b) => new Date(a.next_billing_date) - new Date(b.next_billing_date))
+  const nextRenewalSub = sortedByDate[0] || null
+  const nextRenewalDays = nextRenewalSub ? daysUntil(nextRenewalSub.next_billing_date) : null
+
+  // Budget calculations
+  let budgetPct = 0
+  if (budgetLimit && budgetLimit > 0) {
+    budgetPct = Math.min(100, (totalMonthlySpend / budgetLimit) * 100)
   }
 
-  const bannerBorderColor = budgetStatus === 'exceeded' ? '#ef4444' : budgetStatus === 'warning' ? '#f59e0b' : 'transparent'
+  // Filter list
+  const availableCategories = ['All', ...new Set(subs.map(s => s.category).filter(Boolean))]
 
-  // Spend display color
-  const spendColor = budgetStatus === 'exceeded' ? '#ef4444' : 'var(--foreground)'
+  const filteredSubs = subs.filter(sub => {
+    const matchesSearch = sub.service_name.toLowerCase().includes(searchQuery.toLowerCase())
+    if (!matchesSearch) return false
 
-  // Warning text
-  let warningText = null
-  if (budgetStatus === 'warning') warningText = { text: `${Math.round(budgetRatio * 100)}% of monthly budget used`, color: '#f59e0b' }
-  if (budgetStatus === 'exceeded') warningText = { text: 'Monthly budget exceeded!', color: '#ef4444' }
-
-  // Budget display value
-  const budgetColor = budgetStatus === 'exceeded' ? '#ef4444' : budgetStatus === 'warning' ? '#f59e0b' : '#10b981'
-
-  // ── Filter / Sort ──
-  const uniqueCategories = [...new Set(subs.map(s => s.category).filter(Boolean))]
-
-  const SORT_OPTIONS = [
-    { value: 'soonest', label: 'Sort: Due Soonest' },
-    { value: 'latest', label: 'Sort: Due Latest' },
-    { value: 'high', label: 'Sort: Cost High to Low' },
-    { value: 'low', label: 'Sort: Cost Low to High' },
-    { value: 'alpha', label: 'Sort: Alphabetical' },
-    { value: 'recent', label: 'Sort: Recently Added' },
-  ]
-
-  const currentSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Sort'
-
-  function toggleFilter(chip) {
-    if (chip === 'All') {
-      setActiveFilters(['All'])
-    } else {
-      setActiveFilters(prev => {
-        const without = prev.filter(f => f !== 'All')
-        if (without.includes(chip)) {
-          const next = without.filter(f => f !== chip)
-          return next.length === 0 ? ['All'] : next
-        } else {
-          return [...without, chip]
-        }
-      })
+    if (statusFilter === 'Due Soon') {
+      const d = daysUntil(sub.next_billing_date)
+      if (!(d !== null && d >= 0 && d <= 7)) return false
+    } else if (statusFilter === 'Paused') {
+      if (!sub.paused_at) return false
     }
-  }
 
-  function isFilterActive(chip) { return activeFilters.includes(chip) }
+    if (categoryFilter !== 'All' && sub.category !== categoryFilter) return false
 
-  const STATUS_CHIPS = ['All', 'Due This Week', 'Due This Month', 'Paused']
-
-  // Apply search + filters + sort
-  let filteredSubs = subs.filter(sub => {
-    if (!sub.service_name.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    if (activeFilters.includes('All')) return true
-
-    // AND logic — sub must pass ALL active filters
-    for (const f of activeFilters) {
-      if (f === 'Due This Week') {
-        const d = daysUntil(sub.next_billing_date)
-        if (!(d !== null && d >= 0 && d <= 7)) return false
-      } else if (f === 'Due This Month') {
-        const d = daysUntil(sub.next_billing_date)
-        if (!(d !== null && d >= 0 && d <= 30)) return false
-      } else if (f === 'Paused') {
-        if (!sub.paused_at) return false
-      } else {
-        // Category filter
-        if (sub.category !== f) return false
-      }
-    }
     return true
-  })
-
-  // Sort
-  filteredSubs = [...filteredSubs].sort((a, b) => {
+  }).sort((a, b) => {
     if (sortBy === 'soonest') return new Date(a.next_billing_date) - new Date(b.next_billing_date)
     if (sortBy === 'latest') return new Date(b.next_billing_date) - new Date(a.next_billing_date)
     if (sortBy === 'high') return parseFloat(b.amount) - parseFloat(a.amount)
     if (sortBy === 'low') return parseFloat(a.amount) - parseFloat(b.amount)
     if (sortBy === 'alpha') return a.service_name.localeCompare(b.service_name)
-    if (sortBy === 'recent') return new Date(b.created_at) - new Date(a.created_at)
     return 0
   })
 
-  const filtersActive = !activeFilters.includes('All') || searchQuery.trim() !== ''
-  const countLabel = filtersActive ? `(${filteredSubs.length} of ${subs.length})` : ''
-
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* ── Top Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
-        <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Subscriptions</h2>
-          {countLabel && (
-            <span className="text-sm font-medium" style={{ color: 'var(--muted-foreground)' }}>{countLabel}</span>
-          )}
+    <div className="flex flex-col h-full min-h-0 max-w-7xl mx-auto space-y-4">
+      {/* ── Unified Single Toolbar (Matches Accounts Page) ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border shrink-0">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">Subscriptions</h1>
+
+          {/* Status Segmented Tabs */}
+          <div className="inline-flex p-0.5 rounded-lg border border-border bg-muted/50">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('All')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all tabular-nums ${
+                statusFilter === 'All'
+                  ? 'bg-card text-foreground shadow-xs border border-border/60'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              All ({subs.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('Due Soon')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all tabular-nums ${
+                statusFilter === 'Due Soon'
+                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Clock className="w-3 h-3 text-amber-600" />
+              Due Soon ({dueSoonSubsList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('Paused')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all tabular-nums ${
+                statusFilter === 'Paused'
+                  ? 'bg-card text-foreground shadow-xs border border-border/60'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Paused ({pausedSubsList.length})
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
-          <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
+
+        {/* Right Toolbar Controls: Search, Sort, View Switcher, History Drawer, Add */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search Input */}
+          <div className="relative flex-1 sm:flex-initial sm:w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search services..."
+              placeholder="Filter services..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 transition-colors"
-              style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
             />
           </div>
-          {/* Calendar Toggle */}
-          <button
-            onClick={() => toggleView(viewMode === 'grid' ? 'calendar' : 'grid')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm rounded-lg border font-medium transition-colors shadow-xs ${
-              viewMode === 'calendar'
-                ? 'bg-primary/10 border-primary text-primary'
-                : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted'
-            }`}
+
+          {/* Sort Select */}
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            className="text-xs rounded-lg px-2.5 py-1.5 border border-border bg-card text-foreground focus:outline-none cursor-pointer"
           >
-            <Calendar className="w-4 h-4" />
-            <span className="hidden sm:inline">{viewMode === 'calendar' ? 'Grid View' : 'Calendar'}</span>
-          </button>
-          <button
-            onClick={() => { setEditingSub(null); setIsModalOpen(true) }}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors"
-          >
-            + Add Sub
-          </button>
-        </div>
-      </div>
+            <option value="soonest">Due Soonest</option>
+            <option value="latest">Due Latest</option>
+            <option value="high">Cost (High to Low)</option>
+            <option value="low">Cost (Low to High)</option>
+            <option value="alpha">Name (A–Z)</option>
+          </select>
 
-      {/* ── Summary Banner ── */}
-      <div
-        className="flex flex-col sm:flex-row items-center justify-between mb-5 rounded-xl p-4 sm:px-6 shadow-sm dark:shadow-none border text-center sm:text-left gap-4 sm:gap-0 shrink-0"
-        style={{
-          background: 'var(--card)',
-          borderColor: 'var(--border)',
-          borderLeft: budgetStatus !== 'none' && budgetStatus !== 'ok' ? `3px solid ${bannerBorderColor}` : `1px solid var(--border)`,
-        }}
-      >
-        {/* Total Spend */}
-        <div className="flex-1 flex flex-col items-center cursor-default rounded-lg px-4 py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
-          <p className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: 'var(--muted-foreground)' }}>Total Monthly Spend</p>
-          <p className="text-xl font-bold" style={{ color: spendColor }}>{spendText}</p>
-          {usedConversion && <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted-foreground)' }}>(converted @ {usdRate} PHP/USD)</p>}
-          {warningText && <p className="text-[11px] font-semibold mt-0.5" style={{ color: warningText.color }}>{warningText.text}</p>}
-        </div>
-
-        <div className="hidden sm:block w-px h-10" style={{ background: 'var(--border)' }} />
-
-        {/* Active Subs */}
-        <div className="flex-1 flex flex-col items-center cursor-default rounded-lg px-4 py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
-          <p className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: 'var(--muted-foreground)' }}>Active Subscriptions</p>
-          <p className="text-xl font-bold" style={{ color: 'var(--foreground)' }}>{activeSubsList.length}</p>
-        </div>
-
-        <div className="hidden sm:block w-px h-10" style={{ background: 'var(--border)' }} />
-
-        {/* Due This Week */}
-        <div className="flex-1 flex flex-col items-center cursor-default rounded-lg px-4 py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
-          <p className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: 'var(--muted-foreground)' }}>Due This Week</p>
-          <p className="text-xl font-bold" style={{ color: dueThisWeekCount > 0 ? '#f59e0b' : '#22c55e' }}>{dueThisWeekCount}</p>
-        </div>
-
-        <div className="hidden sm:block w-px h-10" style={{ background: 'var(--border)' }} />
-
-        {/* Monthly Budget */}
-        <div className="flex-1 flex flex-col items-center cursor-default rounded-lg px-4 py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
-          <p className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: 'var(--muted-foreground)' }}>Monthly Budget</p>
-          {editingBudget ? (
-            <InlineEdit
-              value={budgetLimit || ''}
-              onSave={saveBudget}
-              onCancel={() => setEditingBudget(false)}
-              placeholder="e.g. 5000"
-              prefix="PHP"
-            />
-          ) : (
-            <div className="flex items-center gap-1.5">
-              {budgetLimit ? (
-                <p className="text-xl font-bold" style={{ color: budgetColor }}>
-                  PHP {budgetLimit.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                </p>
-              ) : (
-                <p className="text-base" style={{ color: 'var(--muted-foreground)' }}>Not set</p>
-              )}
-              <button onClick={() => setEditingBudget(true)} className="transition-colors hover:opacity-80 p-0.5 rounded" style={{ color: 'var(--muted-foreground)' }}>
-                <Pencil className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-          {/* USD Rate edit */}
-          {usedConversion && !editingRate && (
-            <button onClick={() => setEditingRate(true)} className="text-[10px] mt-0.5 hover:underline" style={{ color: 'var(--muted-foreground)' }}>
-              Rate: {usdRate} PHP/USD ✎
+          {/* View Mode Toggle (Icon-Only: Cards / Table / Calendar) */}
+          <div className="inline-flex p-0.5 rounded-lg border border-border bg-muted/50">
+            <button
+              type="button"
+              onClick={() => toggleView('grid')}
+              title="Card Grid View"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
             </button>
-          )}
-          {editingRate && (
-            <InlineEdit
-              value={usdRate}
-              onSave={saveRate}
-              onCancel={() => setEditingRate(false)}
-              placeholder="56"
-              prefix="Rate:"
-            />
-          )}
+            <button
+              type="button"
+              onClick={() => toggleView('table')}
+              title="Compact Table View"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleView('calendar')}
+              title="Renewal Calendar View"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'calendar'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Billing History Drawer Button (Icon-Only) */}
+          <button
+            type="button"
+            onClick={() => setHistoryDrawerOpen(true)}
+            title="Billing History"
+            className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-xs relative"
+          >
+            <History className="w-3.5 h-3.5" />
+            {billingHistory.length > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-primary absolute top-1.5 right-1.5" />
+            )}
+          </button>
+
+          {/* Add Subscription Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setEditingSub(null)
+              setIsModalOpen(true)
+            }}
+            title="Add Subscription"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-semibold shadow-xs transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add</span>
+          </button>
         </div>
       </div>
 
-      {/* ── Filter / Sort Bar ── */}
-      <div className="flex items-center gap-3 mb-5 shrink-0">
-        {/* Sort Dropdown */}
-        <div className="relative shrink-0" ref={sortRef}>
-          <button
-            onClick={() => setSortOpen(o => !o)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors"
-            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
-          >
-            {currentSortLabel}
-            <ChevronRight className="w-3.5 h-3.5 rotate-90" />
-          </button>
-          {sortOpen && (
-            <div className="absolute left-0 top-full mt-1 w-52 rounded-lg border shadow-lg z-30 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
-              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-              {SORT_OPTIONS.map(opt => (
-                <button key={opt.value}
-                  onClick={() => { setSortBy(opt.value); setSortOpen(false) }}
-                  className="w-full text-left px-4 py-2.5 text-sm transition-colors"
-                  style={{
-                    background: sortBy === opt.value ? '#4f46e5' : 'transparent',
-                    color: sortBy === opt.value ? 'white' : 'var(--foreground)',
-                  }}
-                  onMouseEnter={e => { if (sortBy !== opt.value) e.currentTarget.style.background = 'rgba(79,70,229,0.1)' }}
-                  onMouseLeave={e => { if (sortBy !== opt.value) e.currentTarget.style.background = 'transparent' }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Filter Chips */}
-        <div
-          className="flex items-center gap-2 flex-1 min-w-0"
-          style={{ overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-        >
-          <style>{`.chip-scroll::-webkit-scrollbar { display: none; }`}</style>
-          {/* Status chips */}
-          {STATUS_CHIPS.map(chip => {
-            const active = isFilterActive(chip)
-            return (
-              <button
-                key={chip}
-                onClick={() => toggleFilter(chip)}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
-                style={{
-                  background: active ? '#4f46e5' : 'var(--card)',
-                  borderColor: active ? 'transparent' : 'var(--border)',
-                  color: active ? 'white' : 'var(--muted-foreground)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {chip}
-              </button>
-            )
-          })}
-          {/* Divider */}
-          {uniqueCategories.length > 0 && (
-            <div className="shrink-0 w-px h-5" style={{ background: 'var(--border)' }} />
-          )}
-          {/* Category chips */}
-          {uniqueCategories.map(cat => {
-            const active = isFilterActive(cat)
-            const color = CATEGORY_COLORS[cat] || '#2563eb'
+      {/* ── Category Filter Pills ── */}
+      {availableCategories.length > 2 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
+          {availableCategories.map(cat => {
+            const isSelected = categoryFilter === cat
+            const catColor = cat === 'All' ? 'var(--primary)' : CATEGORY_COLORS[cat] || '#2563eb'
             return (
               <button
                 key={cat}
-                onClick={() => toggleFilter(cat)}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
-                style={{
-                  background: active ? color : 'var(--card)',
-                  borderColor: active ? 'transparent' : 'var(--border)',
-                  color: active ? 'white' : 'var(--muted-foreground)',
-                  whiteSpace: 'nowrap',
-                }}
+                type="button"
+                onClick={() => setCategoryFilter(cat)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all shrink-0 ${
+                  isSelected
+                    ? 'border-primary bg-primary/10 text-primary shadow-xs'
+                    : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                }`}
               >
-                {cat}
+                {cat !== 'All' && <span className="w-2 h-2 rounded-full" style={{ background: catColor }} />}
+                <span>{cat}</span>
               </button>
             )
           })}
         </div>
-      </div>
+      )}
 
-      {/* ── Content Layout ── */}
-      <div className={`transition-all duration-700 flex flex-col lg:flex-row items-start gap-5 flex-1 min-h-0 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      {/* ── 3-Card Financial Pulse Strip ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Card 1: Monthly Recurring & Annualized */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Monthly Recurring
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-foreground tabular-nums">
+              {activeSubsList.length} Active
+            </span>
+          </div>
 
-        {/* Left Side: Card Grid or Calendar */}
-        {viewMode === 'calendar' ? (
-          <SubscriptionCalendar subs={filteredSubs} />
-        ) : (
-          <div className="flex-1 w-full min-w-0">
-            {filteredSubs.length === 0 ? (
-              <div className="rounded-2xl border flex flex-col items-center justify-center py-20 px-4 text-center"
-                style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-                <Filter className="w-10 h-10 mb-3 opacity-25" style={{ color: 'var(--foreground)' }} />
-                <p className="font-semibold text-base" style={{ color: 'var(--muted-foreground)' }}>
-                  {subs.length === 0 ? 'No subscriptions yet' : 'No subscriptions match your filters'}
-                </p>
-                <p className="text-sm mt-1" style={{ color: 'var(--muted-foreground)', opacity: 0.7 }}>
-                  {subs.length === 0 ? 'Add your first subscription to get started.' : 'Try adjusting or clearing your filters'}
-                </p>
-                {subs.length > 0 && filtersActive ? (
-                  <button
-                    onClick={() => { setActiveFilters(['All']); setSearchQuery('') }}
-                    className="mt-4 px-4 py-1.5 rounded-lg border text-sm font-semibold transition-all hover:opacity-80"
-                    style={{ borderColor: '#4f46e5', color: '#4f46e5' }}
-                  >
-                    Clear Filters
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { setEditingSub(null); setIsModalOpen(true) }}
-                    className="mt-4 text-sm hover:underline"
-                    style={{ color: 'var(--ap-accent)' }}
-                  >
-                    Add a new subscription →
-                  </button>
-                )}
+          <div className="my-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold tracking-tight text-foreground tabular-nums">
+              {primaryCurrency} {totalMonthlySpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-xs text-muted-foreground">/mo</span>
+          </div>
+
+          <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Annualized Run Rate</span>
+            <strong className="text-foreground tabular-nums">
+              {primaryCurrency} {annualizedSpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / yr
+            </strong>
+          </div>
+        </div>
+
+        {/* Card 2: Next Renewal */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Next Renewal
+            </span>
+            {nextRenewalSub && (
+              <span
+                className="px-2 py-0.5 rounded-full text-[11px] font-semibold border tabular-nums"
+                style={{
+                  background: nextRenewalDays <= 3 ? 'var(--cooldown-bg)' : 'var(--ready-bg)',
+                  color: nextRenewalDays <= 3 ? 'var(--cooldown-text)' : 'var(--ready-text)',
+                  borderColor: nextRenewalDays <= 3 ? 'var(--cooldown-border)' : 'var(--ready-border)',
+                }}
+              >
+                {nextRenewalDays === 0 ? 'Due Today' : `in ${nextRenewalDays}d`}
+              </span>
+            )}
+          </div>
+
+          {nextRenewalSub ? (
+            <div className="my-2 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold text-foreground truncate">{nextRenewalSub.service_name}</p>
+                <span className="text-sm font-bold text-foreground tabular-nums">
+                  {nextRenewalSub.currency} {parseFloat(nextRenewalSub.amount).toFixed(2)}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {formatDateShort(nextRenewalSub.next_billing_date)} &bull; {nextRenewalSub.payment_method || 'Card'}
+              </p>
+            </div>
+          ) : (
+            <div className="my-2">
+              <p className="text-sm font-semibold text-foreground">No upcoming renewals</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Add subscriptions to track billing dates</p>
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{dueSoonSubsList.length} renewals due this week</span>
+            <button type="button" onClick={() => toggleView('calendar')} className="font-semibold text-primary hover:underline">
+              Calendar →
+            </button>
+          </div>
+        </div>
+
+        {/* Card 3: Monthly Budget Target */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Budget Target
+            </span>
+            <button
+              type="button"
+              onClick={() => setEditingBudget(true)}
+              className="text-[11px] font-semibold text-primary hover:underline"
+            >
+              {budgetLimit ? 'Edit Limit ✎' : '+ Set Limit'}
+            </button>
+          </div>
+
+          <div className="my-2">
+            {editingBudget ? (
+              <InlineEdit
+                value={budgetLimit || ''}
+                onSave={saveBudget}
+                onCancel={() => setEditingBudget(false)}
+                placeholder="e.g. 3000"
+                prefix={primaryCurrency}
+              />
+            ) : budgetLimit ? (
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-bold text-foreground tabular-nums">
+                    {primaryCurrency} {totalMonthlySpend.toLocaleString()} <span className="font-normal text-muted-foreground">/ {budgetLimit.toLocaleString()}</span>
+                  </span>
+                  <span className={`text-xs font-bold tabular-nums ${budgetPct >= 100 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                    {Math.round(budgetPct)}% used
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mt-2">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${budgetPct >= 100 ? 'bg-red-500' : 'bg-primary'}`}
+                    style={{ width: `${budgetPct}%` }}
+                  />
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {filteredSubs.map(sub => {
-                  const days = daysUntil(sub.next_billing_date)
-                  const initial = sub.service_name[0]?.toUpperCase() || '?'
-                  const isPaused = !!sub.paused_at
-                  const catColor = sub.category ? (CATEGORY_COLORS[sub.category] || '#2563eb') : '#2563eb'
-
-                  let cycleDays = 30
-                  const interval = sub.billing_interval || 'monthly'
-                  if (interval === 'quarterly') cycleDays = 90
-                  else if (interval === 'annually') cycleDays = 365
-                  else if (interval === 'custom' && sub.custom_interval_days) cycleDays = parseInt(sub.custom_interval_days)
-
-                  const nextBill = sub.next_billing_date ? new Date(sub.next_billing_date) : null
-                  const today = new Date(); today.setHours(0, 0, 0, 0)
-                  const daysLeft = nextBill ? Math.ceil((nextBill - today) / 86400000) : null
-                  const daysElapsed = daysLeft !== null ? cycleDays - daysLeft : null
-                  const progressPct = daysElapsed !== null ? Math.max(0, Math.min(100, (daysElapsed / cycleDays) * 100)) : 0
-
-                  const isOverdue = daysLeft !== null && daysLeft < 0
-                  const isDueToday = daysLeft === 0
-                  const isDue3d = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3
-                  const isDue7d = daysLeft !== null && daysLeft > 3 && daysLeft <= 7
-
-                  let barColor = 'var(--primary)'
-                  if (isPaused) { barColor = 'var(--muted-foreground)' }
-                  else if (isOverdue || isDueToday || isDue3d) { barColor = '#ef4444' }
-                  else if (isDue7d) { barColor = '#f59e0b' }
-
-                  const barPct = (isOverdue || isDueToday) ? 100 : progressPct
-
-                  let cycleLabel = '/ mo'
-                  if (sub.billing_interval === 'quarterly') cycleLabel = '/ qtr'
-                  else if (sub.billing_interval === 'annually') cycleLabel = '/ yr'
-                  else if (sub.billing_interval === 'custom') cycleLabel = `/ ${sub.custom_interval_days}d`
-
-                  const tooltipText = daysLeft !== null
-                    ? `${Math.max(0, daysElapsed)}d of ${cycleDays}d elapsed · ${daysLeft > 0 ? daysLeft + 'd until next bill' : isOverdue ? 'Overdue by ' + Math.abs(daysLeft) + 'd' : 'Due today'}`
-                    : 'No billing date set'
-
-                  return (
-                    <div key={sub.id}
-                      className="rounded-xl border border-border bg-card p-5 flex flex-col transition-all shadow-xs hover:border-border/80"
-                    >
-                      {/* Top Row */}
-                      <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-3 min-w-0 pr-4 flex-1">
-                          {sub.icon_url ? (
-                            <img src={sub.icon_url} alt={sub.service_name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/60" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white font-bold text-base shadow-xs" style={{ background: getPlatformColor(sub.service_name) }}>
-                              {initial}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold truncate text-sm leading-tight text-foreground flex items-center gap-1.5">
-                              {sub.service_name}
-                              {isPaused && <span className="text-amber-500 text-xs">⏸</span>}
-                            </p>
-                            {sub.category ? (
-                              <div className="mt-1">
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border/60">
-                                  {sub.category}
-                                </span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => { setEditingSub(sub); setIsModalOpen(true) }}
-                                className="text-[10px] mt-0.5 text-muted-foreground hover:underline"
-                              >
-                                + Add category
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="shrink-0 -mr-1.5">
-                          <CardMenu
-                            onEdit={() => { setEditingSub(sub); setIsModalOpen(true) }}
-                            onArchive={() => handleArchiveClick(sub)}
-                            isPaused={isPaused}
-                            onTogglePause={() => handleTogglePause(sub)}
-                            serviceName={sub.service_name}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Pricing Row */}
-                      <div className="flex items-baseline justify-between mb-1">
-                        <div>
-                          <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                            {sub.currency} {parseFloat(sub.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                          <span className="text-xs ml-1 text-muted-foreground">{cycleLabel}</span>
-                        </div>
-                        <span className="text-xs font-semibold" style={{ color: barColor }}>
-                          {daysLeft !== null ? (isOverdue ? 'Overdue' : isDueToday ? 'Due today' : `${daysLeft}d left`) : '—'}
-                        </span>
-                      </div>
-
-                      <ProgressBar pct={barPct} barColor={barColor} isPaused={isPaused} tooltip={tooltipText} />
-
-                      {/* Footer */}
-                      <div className="mt-auto pt-3 flex items-center justify-between border-t border-border">
-                        <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
-                          Next Bill: <span className="text-foreground">{formatDateShort(sub.next_billing_date)}</span>
-                          {sub.payment_method && (
-                            <>
-                              <span className="text-muted-foreground">•</span>
-                              <CreditCard className="w-3 h-3" />
-                              <span>{sub.payment_method}</span>
-                            </>
-                          )}
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          {isOverdue && !isPaused && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800">Overdue</span>
-                          )}
-                          {cycleBadge && (
-                            <div className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0"
-                              style={{ background: cycleBadge.bg, color: cycleBadge.text }}>
-                              {cycleBadge.label}
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0"
-                            style={{ background: statusBadge.bg, color: statusBadge.text }}>
-                            <span
-                              className={(!isPaused && !isOverdue) ? 'animate-pulse' : ''}
-                              style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: statusBadge.text }}
-                            />
-                            {statusBadge.label}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+              <div>
+                <p className="text-sm font-semibold text-foreground">No budget cap set</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Click set limit to track your monthly spending ceiling</p>
               </div>
             )}
           </div>
-        )}
 
-        {/* Right Side: Billing History — hidden in calendar view on mobile */}
-        <div className={`w-full lg:w-[320px] shrink-0 lg:sticky lg:top-4 rounded-2xl flex flex-col ${viewMode === 'calendar' ? 'hidden lg:flex' : ''}`}
-          style={{ background: 'var(--card)', maxHeight: 'calc(100vh - 7rem)', border: '1px solid var(--border)' }}>
-          <div className="px-5 py-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
-            <h3 className="text-[15px] font-bold" style={{ color: 'var(--foreground)' }}>Billing History</h3>
-            <History className="w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
-          </div>
-          <div className="flex-1 overflow-y-auto px-5 pb-5">
-            {billingHistory.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>No history available</p>
-              </div>
-            ) : (
-              <div className="relative mt-5">
-                {billingHistory.map((n, idx) => (
-                  <div key={n.id} className="flex gap-4 relative group">
-                    {idx !== billingHistory.length - 1 && (
-                      <div className="absolute left-[11px] top-4 bottom-[-24px] w-px" style={{ background: 'color-mix(in srgb, var(--border) 80%, transparent)' }} />
-                    )}
-                    <div className="relative z-10 shrink-0 mt-[2px] w-6 h-6 rounded-md border-2 bg-card flex items-center justify-center"
-                      style={{ borderColor: getPlatformColor(n.service_name), background: 'var(--card)' }}>
-                      {n.icon_url ? (
-                        <img src={n.icon_url} alt={n.service_name} className="w-full h-full rounded-sm object-cover" />
-                      ) : (
-                        <span className="text-[8px] font-bold text-foreground">{n.service_name[0]?.toUpperCase()}</span>
-                      )}
-                      <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full border-2"
-                        style={{ background: n.statusColor, borderColor: 'var(--card)' }}
-                        title={n.status}
-                      />
-                    </div>
-                    <div className="pb-6 min-w-0 flex-1 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold leading-snug truncate" style={{ color: 'var(--foreground)' }}>{n.service_name}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>{formatMonthDay(n.paid_on)}</span>
-                          <span className="text-[10px] text-slate-400">•</span>
-                          <span className="text-[11px] font-medium truncate" style={{ color: 'var(--muted-foreground)' }}>{n.channel}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <p className="text-[13px] font-bold shrink-0" style={{ color: 'var(--foreground)' }}>
-                          {n.currency} {parseFloat(n.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </p>
-                        <button className="text-muted-foreground hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100" title="Download Receipt">
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Spend Ceiling</span>
+            <strong className="text-foreground tabular-nums">
+              {budgetLimit ? `${primaryCurrency} ${budgetLimit.toLocaleString()}` : 'Unlimited'}
+            </strong>
           </div>
         </div>
       </div>
 
+      {/* ── Main Content View (Cards vs Table vs Calendar) ── */}
+      <div
+        className={`transition-all duration-300 flex-1 min-h-0 ${
+          isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+        }`}
+      >
+        {viewMode === 'calendar' ? (
+          <SubscriptionCalendar subs={filteredSubs} />
+        ) : filteredSubs.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card flex flex-col items-center justify-center py-20 px-4 text-center">
+            <Filter className="w-9 h-9 mb-2.5 opacity-20 text-foreground" />
+            <p className="text-sm font-semibold text-foreground">
+              {subs.length === 0 ? 'No subscriptions tracked yet' : 'No subscriptions match your filters'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+              {subs.length === 0
+                ? 'Add your subscriptions to monitor monthly costs and renewal dates.'
+                : 'Try adjusting your search query or category filters.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingSub(null)
+                setIsModalOpen(true)
+              }}
+              className="mt-3.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Subscription
+            </button>
+          </div>
+        ) : viewMode === 'grid' ? (
+          /* ── SUB-VIEW 1: CLEAN CARDS ── */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            {filteredSubs.map(sub => {
+              const days = daysUntil(sub.next_billing_date)
+              const initial = sub.service_name[0]?.toUpperCase() || '?'
+              const isPaused = !!sub.paused_at
+              const catColor = sub.category ? (CATEGORY_COLORS[sub.category] || '#2563eb') : '#2563eb'
+
+              let cycleDays = 30
+              const interval = sub.billing_interval || 'monthly'
+              if (interval === 'quarterly') cycleDays = 90
+              else if (interval === 'annually') cycleDays = 365
+              else if (interval === 'custom' && sub.custom_interval_days) cycleDays = parseInt(sub.custom_interval_days)
+
+              const nextBill = sub.next_billing_date ? new Date(sub.next_billing_date) : null
+              const today = new Date(); today.setHours(0, 0, 0, 0)
+              const daysLeft = nextBill ? Math.ceil((nextBill - today) / 86400000) : null
+              const daysElapsed = daysLeft !== null ? cycleDays - daysLeft : null
+              const progressPct = daysElapsed !== null ? Math.max(0, Math.min(100, (daysElapsed / cycleDays) * 100)) : 0
+
+              const isOverdue = daysLeft !== null && daysLeft < 0
+              const isDueToday = daysLeft === 0
+              const isDue3d = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3
+
+              let barColor = 'var(--primary)'
+              if (isPaused) barColor = 'var(--muted-foreground)'
+              else if (isOverdue || isDueToday || isDue3d) barColor = '#ef4444'
+
+              let cycleLabel = '/ mo'
+              if (sub.billing_interval === 'quarterly') cycleLabel = '/ qtr'
+              else if (sub.billing_interval === 'annually') cycleLabel = '/ yr'
+              else if (sub.billing_interval === 'custom') cycleLabel = `/ ${sub.custom_interval_days}d`
+
+              const tooltipText = daysLeft !== null
+                ? `${Math.max(0, daysElapsed)}d of ${cycleDays}d elapsed · ${daysLeft > 0 ? daysLeft + 'd until next bill' : isOverdue ? 'Overdue' : 'Due today'}`
+                : 'No billing date set'
+
+              return (
+                <div
+                  key={sub.id}
+                  className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between transition-all shadow-xs hover:border-border/80"
+                >
+                  {/* Top Row: Service Icon & Title */}
+                  <div className="flex items-start justify-between pb-3 border-b border-border">
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2 flex-1">
+                      {sub.icon_url ? (
+                        <img src={sub.icon_url} alt={sub.service_name} className="w-8 h-8 rounded-lg object-cover shrink-0 border border-border/60" />
+                      ) : (
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-white font-bold text-xs shadow-xs"
+                          style={{ background: getPlatformColor(sub.service_name) }}
+                        >
+                          {initial}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-bold truncate text-xs sm:text-sm text-foreground">{sub.service_name}</p>
+                          {isPaused && (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200">
+                              Paused
+                            </span>
+                          )}
+                        </div>
+                        {sub.category ? (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: catColor }} />
+                            <span className="text-[11px] text-muted-foreground">{sub.category}</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setEditingSub(sub); setIsModalOpen(true) }}
+                            className="text-[11px] text-muted-foreground hover:underline"
+                          >
+                            + category
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 -mr-1">
+                      <CardMenu
+                        onEdit={() => { setEditingSub(sub); setIsModalOpen(true) }}
+                        onArchive={() => handleArchiveClick(sub)}
+                        isPaused={isPaused}
+                        onTogglePause={() => handleTogglePause(sub)}
+                        serviceName={sub.service_name}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pricing Row & Progress */}
+                  <div className="my-3">
+                    <div className="flex items-baseline justify-between mb-1">
+                      <div>
+                        <span className="text-xl font-extrabold tracking-tight text-foreground tabular-nums">
+                          {sub.currency} {parseFloat(sub.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-xs ml-1 text-muted-foreground">{cycleLabel}</span>
+                      </div>
+                      <span
+                        className="text-xs font-semibold tabular-nums"
+                        style={{ color: isOverdue ? '#ef4444' : isDue3d ? '#b45309' : 'var(--muted-foreground)' }}
+                      >
+                        {daysLeft !== null
+                          ? isOverdue
+                            ? 'Overdue'
+                            : isDueToday
+                              ? 'Due today'
+                              : `${daysLeft}d left`
+                          : '—'}
+                      </span>
+                    </div>
+
+                    <ProgressBar pct={progressPct} barColor={barColor} isPaused={isPaused} tooltip={tooltipText} />
+                  </div>
+
+                  {/* Card Bottom Row: Billing details + quick action icons */}
+                  <div className="pt-2.5 border-t border-border flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 text-muted-foreground truncate pr-2">
+                      <span>Next: <strong className="text-foreground">{formatDateShort(sub.next_billing_date)}</strong></span>
+                      {sub.payment_method && (
+                        <>
+                          <span>&bull;</span>
+                          <CreditCard className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <span className="truncate">{sub.payment_method}</span>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => { setEditingSub(sub); setIsModalOpen(true) }}
+                        title="Edit subscription"
+                        className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePause(sub)}
+                        title={isPaused ? "Resume subscription" : "Pause subscription"}
+                        className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        {isPaused ? <PlayCircle className="w-3.5 h-3.5 text-emerald-600" /> : <PauseCircle className="w-3.5 h-3.5 text-amber-600" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          /* ── SUB-VIEW 2: COMPACT TABLE ── */
+          <div className="rounded-xl border border-border bg-card shadow-xs overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <th className="py-2.5 px-4">Service</th>
+                  <th className="py-2.5 px-4">Category</th>
+                  <th className="py-2.5 px-4">Amount</th>
+                  <th className="py-2.5 px-4">Next Billing</th>
+                  <th className="py-2.5 px-4">Payment Method</th>
+                  <th className="py-2.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredSubs.map(sub => {
+                  const days = daysUntil(sub.next_billing_date)
+                  const isPaused = !!sub.paused_at
+                  return (
+                    <tr key={sub.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="py-2.5 px-4 font-bold text-foreground whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: getPlatformColor(sub.service_name) }}
+                          />
+                          <span>{sub.service_name}</span>
+                          {isPaused && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                              Paused
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
+                        {sub.category ? (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: CATEGORY_COLORS[sub.category] || '#2563eb' }} />
+                            <span>{sub.category}</span>
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="py-2.5 px-4 font-bold text-foreground tabular-nums whitespace-nowrap">
+                        {sub.currency} {parseFloat(sub.amount).toFixed(2)} <span className="font-normal text-muted-foreground">/{sub.billing_interval || 'mo'}</span>
+                      </td>
+                      <td className="py-2.5 px-4 tabular-nums whitespace-nowrap">
+                        <span className="text-foreground">{formatDateShort(sub.next_billing_date)}</span>
+                        {days !== null && (
+                          <span className="text-muted-foreground ml-1.5">
+                            ({days < 0 ? 'Overdue' : days === 0 ? 'Today' : `${days}d`})
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
+                        {sub.payment_method || '—'}
+                      </td>
+                      <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => { setEditingSub(sub); setIsModalOpen(true) }}
+                            title="Edit"
+                            className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePause(sub)}
+                            title={isPaused ? "Resume" : "Pause"}
+                            className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                          >
+                            {isPaused ? <PlayCircle className="w-3.5 h-3.5 text-emerald-600" /> : <PauseCircle className="w-3.5 h-3.5 text-amber-600" />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Slide-Over Billing History Drawer ── */}
+      {historyDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[1px] animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-card border-l border-border h-full flex flex-col shadow-xl animate-in slide-in-from-right duration-200">
+            <div className="px-4 py-3.5 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Billing History</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHistoryDrawerOpen(false)}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Close drawer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {billingHistory.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-xs text-muted-foreground">No billing events on record</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {billingHistory.map(item => (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-xl border border-border bg-card shadow-xs flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0 flex items-center gap-2.5">
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-white font-bold text-xs"
+                          style={{ background: getPlatformColor(item.service_name) }}
+                        >
+                          {item.service_name[0]?.toUpperCase() || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-foreground truncate">{item.service_name}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {formatMonthDay(item.paid_on)} &bull; {item.payment_method}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="font-extrabold text-foreground tabular-nums">
+                          {item.currency} {parseFloat(item.amount).toFixed(2)}
+                        </span>
+                        <div className="flex items-center justify-end gap-1 mt-0.5 text-emerald-600 text-[10px] font-semibold">
+                          <Check className="w-3 h-3" /> Paid
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Modal */}
       <SubscriptionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -1155,7 +1270,7 @@ export default function SubscriptionsIndex() {
         onSave={() => load()}
       />
 
-      {/* ── Sensitive Action Modal ── */}
+      {/* Sensitive Action Modal */}
       <SensitiveActionModal
         isOpen={!!subToArchive}
         onClose={() => setSubToArchive(null)}
