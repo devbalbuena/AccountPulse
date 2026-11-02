@@ -328,11 +328,10 @@ export default function AccountsIndex() {
             <option value="desc">Alphabetical (Z-A)</option>
           </select>
           <Link to="/accounts/archived"
-            className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
-            style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+            className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium transition-colors hover:bg-muted text-muted-foreground hover:text-foreground shadow-xs">
             Archived
           </Link>
-          <button onClick={() => { setEditingAccount(null); setIsModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+          <button onClick={() => { setEditingAccount(null); setIsModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-semibold shadow-xs transition-colors">
             <span className="hidden sm:inline">Add Account</span>
             <span className="sm:hidden">Add</span>
           </button>
@@ -341,41 +340,41 @@ export default function AccountsIndex() {
 
       {/* ── Status Tabs (All / Ready now / On cooldown) ── */}
       <div className="flex items-center gap-2 mb-5 shrink-0 overflow-x-auto pb-1">
-        <div className="inline-flex p-1 rounded-xl border bg-muted/30" style={{ borderColor: 'var(--border)' }}>
+        <div className="inline-flex p-1 rounded-lg border border-border bg-muted/40">
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
               statusFilter === 'all'
-                ? 'bg-card text-foreground shadow-sm border border-border'
+                ? 'bg-card text-foreground shadow-xs border border-border'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            All <span className="opacity-75 ml-1 font-mono">({allCount})</span>
+            All <span className="opacity-70 ml-1 font-mono">({allCount})</span>
           </button>
           <button
             type="button"
             onClick={() => setStatusFilter('ready')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
               statusFilter === 'ready'
-                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm font-bold'
-                : 'text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400'
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Ready now <span className="opacity-75 ml-0.5 font-mono">({readyCount})</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+            Ready now <span className="opacity-70 ml-0.5 font-mono">({readyCount})</span>
           </button>
           <button
             type="button"
             onClick={() => setStatusFilter('cooldown')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
               statusFilter === 'cooldown'
-                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-sm font-bold'
-                : 'text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400'
+                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            On cooldown <span className="opacity-75 ml-0.5 font-mono">({cooldownCount})</span>
+            On cooldown <span className="opacity-70 ml-0.5 font-mono">({cooldownCount})</span>
           </button>
         </div>
       </div>
@@ -402,26 +401,25 @@ export default function AccountsIndex() {
 
                 return (
                   <div key={acc.id} 
-                    className="rounded-2xl border flex flex-col p-5 transition-all duration-300 relative group overflow-hidden"
-                    style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+                    className="rounded-xl border border-border bg-card flex flex-col p-5 transition-all shadow-xs hover:border-border/80"
                   >
                     {/* Top Row with Platform, Type, Email + Copy Button, and CardMenu */}
-                    <div className="flex items-start justify-between mb-4 group/header">
+                    <div className="flex items-start justify-between pb-3.5 border-b border-border">
                       <div className="flex items-start gap-3 min-w-0 pr-2">
                         {acc.icon_url ? (
-                          <img src={acc.icon_url} alt={acc.platform} className="w-[42px] h-[42px] rounded-[10px] object-cover shrink-0 border border-border/50" />
+                          <img src={acc.icon_url} alt={acc.platform} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/60" />
                         ) : (
-                          <div className="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center shrink-0 text-white font-bold text-lg shadow-sm" style={{ background: color }}>
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white font-bold text-base shadow-xs" style={{ background: color }}>
                             {initial}
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="font-semibold truncate text-[15px] leading-tight" style={{ color: 'var(--foreground)' }}>{acc.platform}</p>
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--muted)', color: 'var(--muted-foreground)' }}>{acc.type}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold truncate text-sm leading-tight text-foreground">{acc.platform}</p>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{acc.type}</span>
                           </div>
                           <div className="flex items-center gap-1.5 mt-1">
-                            <p className="text-xs truncate font-mono" style={{ color: 'var(--muted-foreground)' }} title={acc.email}>{acc.email}</p>
+                            <p className="text-xs truncate font-mono text-muted-foreground" title={acc.email}>{acc.email}</p>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -430,15 +428,15 @@ export default function AccountsIndex() {
                                 navigator.clipboard.writeText(acc.email)
                                 addToast({ type: 'success', message: 'Email copied to clipboard' })
                               }}
-                              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
                               title="Copy email to clipboard"
                             >
-                              <Copy className="w-3.5 h-3.5" />
+                              <Copy className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
                       </div>
-                      <div className="shrink-0 -mr-2 relative top-[-2px]">
+                      <div className="shrink-0 -mr-1.5">
                         <CardMenu 
                           onEdit={() => { setEditingAccount(acc); setIsModalOpen(true); }}
                           onArchive={() => handleArchiveClick(acc)}
@@ -446,33 +444,29 @@ export default function AccountsIndex() {
                       </div>
                     </div>
 
-                    {/* Stack of Sub-Timer Groups */}
+                    {/* Stack of Sub-Timer Groups (Clean non-nested layout) */}
                     {groups.length === 0 ? (
-                      <div className="py-4 text-center rounded-xl border border-dashed border-border/60 bg-muted/20">
+                      <div className="py-4 text-center mt-3 rounded-lg border border-dashed border-border bg-muted/20">
                         <p className="text-xs text-muted-foreground">No timers configured</p>
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-2.5">
+                      <div className="divide-y divide-border/60">
                         {groups.map(group => {
                           const isGroupReady = group.isReady
 
                           return (
-                            <div 
-                              key={group.groupName} 
-                              className="p-2.5 rounded-xl border flex flex-col gap-2 bg-card/60 transition-all hover:border-border"
-                              style={{ borderColor: 'var(--border)' }}
-                            >
-                              {/* Group Header: Group Name + FIXED COLOR Status Chip */}
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-bold truncate text-foreground">
+                            <div key={group.groupName} className="pt-3 pb-1 first:pt-3">
+                              {/* Group Header: Group Name + Quiet Status Chip */}
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <span className="text-xs font-semibold truncate text-foreground">
                                   {group.groupName}
                                 </span>
 
-                                {/* Status Chip: FIXED COLORS (Green for Ready, Amber for Cooldown) */}
-                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 border shrink-0 ${
+                                {/* Status Chip: Calm Muted Tones */}
+                                <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 border shrink-0 ${
                                   isGroupReady
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                                 }`}>
                                   {isGroupReady ? (
                                     <>
@@ -489,28 +483,28 @@ export default function AccountsIndex() {
                               </div>
 
                               {/* Individual Timers in this Group */}
-                              <div className="space-y-1.5 pt-1.5 border-t border-border/40">
+                              <div className="space-y-1">
                                 {group.timers.map(timer => {
                                   const modelColor = timer.color || '#2563eb'
                                   const hasInterval = (timer.interval_hours || 0) > 0
 
                                   return (
-                                    <div key={timer.id} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-muted/40 transition-colors group/timer">
-                                      {/* Timer name with model's own color dot ONLY */}
-                                      <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                                    <div key={timer.id} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-md hover:bg-muted/40 transition-colors">
+                                      {/* Timer name with model color dot */}
+                                      <div className="flex items-center gap-2 min-w-0 pr-2">
                                         <span 
                                           className="w-2 h-2 rounded-full shrink-0" 
                                           style={{ backgroundColor: modelColor }} 
                                           title={`Model color: ${modelColor}`} 
                                         />
-                                        <span className="truncate text-muted-foreground font-medium text-[11px]" title={timer.model_name}>
+                                        <span className="truncate text-muted-foreground font-medium text-xs" title={timer.model_name}>
                                           {timer.model_name || 'Timer'}
                                         </span>
                                       </div>
 
                                       {/* Actions & Countdown */}
                                       <div className="flex items-center gap-1.5 shrink-0">
-                                        <span className="text-[11px] font-mono tabular-nums">
+                                        <span className="text-xs font-mono tabular-nums text-foreground">
                                           <CountdownTimer
                                             nextDueAt={timer.next_due_at}
                                             accountId={acc.id}
@@ -524,7 +518,7 @@ export default function AccountsIndex() {
                                         {/* Set remaining time button */}
                                         <button 
                                           onClick={() => setTimerToSetRemaining({ timer, account: acc })}
-                                          className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                          className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                                           title="Set remaining time"
                                         >
                                           <Clock className="w-3 h-3" />
@@ -534,7 +528,7 @@ export default function AccountsIndex() {
                                         <button 
                                           onClick={() => hasInterval && handleDrainedNow(timer, acc)}
                                           disabled={!hasInterval}
-                                          className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${
+                                          className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
                                             hasInterval 
                                               ? 'text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer' 
                                               : 'opacity-30 cursor-not-allowed'
@@ -561,14 +555,13 @@ export default function AccountsIndex() {
         </div>
 
         {/* Right Side: Activity Feed Panel */}
-        <div className="w-full lg:w-[280px] shrink-0 lg:sticky lg:top-4 rounded-2xl flex flex-col"
-          style={{ background: 'var(--card)', maxHeight: 'calc(100vh - 7rem)', border: '1px solid var(--border)' }}>
-          <div className="px-5 py-3.5 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
-            <h3 className="text-[15px] font-bold" style={{ color: 'var(--foreground)' }}>Activity Feed</h3>
+        <div className="w-full lg:w-[280px] shrink-0 lg:sticky lg:top-4 rounded-xl flex flex-col bg-card border border-border shadow-xs"
+          style={{ maxHeight: 'calc(100vh - 7rem)' }}>
+          <div className="px-5 py-3.5 flex items-center justify-between border-b border-border bg-card rounded-t-xl">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Activity Feed</h3>
             {activity.length > 0 && (
               <button onClick={() => setClearActivityOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-medium hover:opacity-70 transition-opacity"
-                style={{ color: 'var(--muted-foreground)' }}
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                 title="Clear activity history">
                 <Eraser className="w-3.5 h-3.5" />
                 Clear
@@ -576,33 +569,31 @@ export default function AccountsIndex() {
             )}
           </div>
           
-          <div className="flex-1 overflow-y-auto px-5 pb-5">
+          <div className="flex-1 overflow-y-auto px-5 py-4">
             {activity.length === 0 ? (
-              <div className="py-6 text-center">
-                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>No recent activity</p>
+              <div className="py-8 text-center">
+                <p className="text-xs text-muted-foreground">No recent activity</p>
               </div>
             ) : (
               <div className="relative">
                 {activity.map((n, idx) => {
-                  // Retrieve matching account to get icon_url if available
                   const matchingAcc = accounts.find(a => n.message.includes(a.email))
                   const platName = matchingAcc ? matchingAcc.platform : 'A'
                   const iconUrl = matchingAcc?.icon_url
                   const displayMsg = n.message
                   
                   return (
-                    <div key={n.id} className="flex gap-3.5 relative">
-                      {/* Timeline Line */}
+                    <div key={n.id} className="flex gap-3 relative pb-4 last:pb-1">
                       {idx !== activity.length - 1 && (
-                        <div className="absolute left-3.5 top-8 bottom-[-8px] w-px" style={{ background: 'var(--border)' }} />
+                        <div className="absolute left-3.5 top-6 bottom-0 w-px bg-border" />
                       )}
                       
                       {/* Avatar */}
                       <div className="relative z-10 shrink-0">
                         {iconUrl ? (
-                          <img src={iconUrl} alt={platName} className="w-7 h-7 rounded-[6px] object-cover border" style={{ borderColor: 'var(--border)' }} />
+                          <img src={iconUrl} alt={platName} className="w-7 h-7 rounded-lg object-cover border border-border" />
                         ) : (
-                          <div className="w-7 h-7 rounded-[6px] flex items-center justify-center text-[10px] font-bold text-white shadow-sm"
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-xs"
                             style={{ background: getPlatformColor(platName) }}>
                             {platName[0].toUpperCase()}
                           </div>
@@ -610,9 +601,9 @@ export default function AccountsIndex() {
                       </div>
                       
                       {/* Content */}
-                      <div className="pb-6 min-w-0 pt-0.5">
-                        <p className="text-[13px] font-medium leading-snug line-clamp-2" style={{ color: 'var(--foreground)' }}>{displayMsg}</p>
-                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted-foreground)' }}>{timeAgo(n.created_at)}</p>
+                      <div className="min-w-0 pt-0.5">
+                        <p className="text-xs font-medium leading-relaxed text-foreground">{displayMsg}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(n.created_at)}</p>
                       </div>
                     </div>
                   )
