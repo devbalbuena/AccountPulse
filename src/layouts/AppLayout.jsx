@@ -292,8 +292,8 @@ export default function AppLayout() {
         style={{ marginLeft: isMobile ? '0px' : collapsed ? '64px' : '200px' }}
       >
 
-        {/* Top Bar */}
-        <header className="h-14 shrink-0 flex items-center gap-4 px-4 md:px-6 border-b bg-card border-border">
+        {/* Top Bar (Single compact header without fake search or duplicate strip) */}
+        <header className="h-12 shrink-0 flex items-center justify-between gap-4 px-4 md:px-6 border-b bg-card border-border">
 
           {/* Mobile Brand Logo */}
           <div className="md:hidden flex items-center gap-2">
@@ -305,50 +305,45 @@ export default function AppLayout() {
             </span>
           </div>
 
-          {/* Search (Desktop) */}
-          <div className="hidden md:block flex-1 max-w-sm relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border bg-background border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
-            />
+          {/* Desktop Compact Context Trail */}
+          <div className="hidden md:flex items-center text-xs text-muted-foreground">
+            {(() => {
+              const pathnames = location.pathname.split('/').filter(x => x)
+              const breadcrumbs = [
+                { name: 'Workspace', path: '/dashboard' },
+                ...pathnames.map((value, index) => {
+                  const path = `/${pathnames.slice(0, index + 1).join('/')}`
+                  const name = value.charAt(0).toUpperCase() + value.slice(1)
+                  return { name, path }
+                })
+              ]
+              return breadcrumbs.map((bc, idx) => {
+                const isLast = idx === breadcrumbs.length - 1
+                return (
+                  <div key={`${bc.path}-${idx}`} className="flex items-center">
+                    {isLast ? (
+                      <span className="font-semibold text-foreground">{bc.name}</span>
+                    ) : (
+                      <>
+                        <Link to={bc.path} className="hover:text-foreground transition-colors">{bc.name}</Link>
+                        <ChevronRightIcon className="w-3.5 h-3.5 mx-1.5 opacity-60" />
+                      </>
+                    )}
+                  </div>
+                )
+              })
+            })()}
           </div>
 
-          {/* Search (Mobile Overlay) */}
-          {isMobile && mobileSearchOpen && (
-            <div className="absolute inset-y-0 left-0 right-0 z-50 flex items-center px-4 gap-2 bg-card">
-              <Search className="w-4 h-4 shrink-0 text-muted-foreground" />
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search..."
-                className="flex-1 bg-transparent border-none focus:outline-none text-sm text-foreground"
-              />
-              <button onClick={() => setMobileSearchOpen(false)} className="p-1.5 text-muted-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5 ml-auto">
-            {/* Search Icon (Mobile) */}
-            {isMobile && !mobileSearchOpen && (
-              <button onClick={() => setMobileSearchOpen(true)} className="p-2 rounded-lg text-muted-foreground hover:bg-muted">
-                <Search className="w-4.5 h-4.5" />
-              </button>
-            )}
-
-            {/* Quick Theme Toggle (Mobile) */}
-            {isMobile && (
-              <button
-                onClick={toggle}
-                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {theme === 'dark' ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
-              </button>
-            )}
+          <div className="flex items-center gap-1 ml-auto">
+            {/* Quick Theme Toggle (Icon-only) */}
+            <button
+              onClick={toggle}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
 
             {/* Notifications Bell */}
             <button
@@ -356,7 +351,7 @@ export default function AppLayout() {
               className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted relative"
               title="Notifications"
             >
-              <Bell className="w-4.5 h-4.5" />
+              <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -369,7 +364,7 @@ export default function AppLayout() {
               <button
                 onClick={() => setProfileOpen(o => !o)}
                 title={`Signed in as ${user?.email}`}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-primary text-primary-foreground text-xs font-bold transition-opacity hover:opacity-90 shadow-xs"
+                className="w-7 h-7 rounded-full flex items-center justify-center bg-primary text-primary-foreground text-xs font-bold transition-opacity hover:opacity-90 shadow-xs"
               >
                 {avatarLetter}
               </button>
@@ -441,38 +436,6 @@ export default function AppLayout() {
             </div>
           </div>
         </header>
-
-        {/* Secondary Navigation Line (Breadcrumbs) */}
-        <div className="px-4 md:px-6 py-2.5 border-b flex items-center text-sm shrink-0 bg-background border-border">
-          {(() => {
-            const pathnames = location.pathname.split('/').filter(x => x)
-            const breadcrumbs = [
-              { name: 'Dashboard', path: '/dashboard' },
-              ...pathnames.map((value, index) => {
-                const path = `/${pathnames.slice(0, index + 1).join('/')}`
-                const name = value.charAt(0).toUpperCase() + value.slice(1)
-                return { name, path }
-              })
-            ]
-            if (location.pathname === '/dashboard') breadcrumbs.pop()
-
-            return breadcrumbs.map((bc, idx) => {
-              const isLast = idx === breadcrumbs.length - 1
-              return (
-                <div key={bc.path} className="flex items-center">
-                  {isLast ? (
-                    <span className="font-semibold text-foreground">{bc.name}</span>
-                  ) : (
-                    <>
-                      <Link to={bc.path} className="hover:underline transition-colors text-muted-foreground">{bc.name}</Link>
-                      <ChevronRightIcon className="w-3.5 h-3.5 mx-2 text-muted-foreground" />
-                    </>
-                  )}
-                </div>
-              )
-            })
-          })()}
-        </div>
 
         {/* Main content */}
         <main className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar">
