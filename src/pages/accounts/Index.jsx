@@ -9,30 +9,24 @@ import SensitiveActionModal from '@/components/SensitiveActionModal'
 import SetRemainingTimeModal from '@/components/SetRemainingTimeModal'
 import { addDuration, formatDuration, evaluateAccountStatus } from '@/lib/durationUtils'
 import { useNow } from '@/context/TimeContext'
-import { Search, Pencil, Trash2, RotateCw, RotateCcw, Eraser, MoreVertical, Archive, Copy, Check, Clock } from 'lucide-react'
-
-function CopyButton({ text, tooltip, className }) {
-  const [copied, setCopied] = useState(false)
-  function handleCopy(e) {
-    e.preventDefault(); e.stopPropagation();
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
-  return (
-    <button onClick={handleCopy} title={tooltip} className={`transition-colors hover:text-foreground text-muted-foreground ${className}`}>
-      {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-    </button>
-  )
-}
-
-const PALETTE = ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6']
-function getPlatformColor(name) {
-  if (!name) return PALETTE[0]
-  let sum = 0
-  for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i)
-  return PALETTE[sum % PALETTE.length]
-}
+import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
+import {
+  Search,
+  Pencil,
+  RotateCcw,
+  Eraser,
+  MoreVertical,
+  Archive,
+  Copy,
+  Check,
+  Clock,
+  Plus,
+  LayoutGrid,
+  List,
+  History,
+  X,
+  ArrowUpDown,
+} from 'lucide-react'
 
 function timeAgo(ts) {
   if (!ts) return ''
@@ -57,24 +51,36 @@ function CardMenu({ onEdit, onArchive }) {
 
   return (
     <div className="relative" ref={menuRef}>
-      <button onClick={() => setOpen(!open)}
-        className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-muted"
-        style={{ color: 'var(--muted-foreground)' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        title="Account actions"
+        className="w-7 h-7 rounded-md flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+      >
         <MoreVertical className="w-4 h-4" />
       </button>
-      
+
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-32 rounded-lg shadow-lg border overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100"
-          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-          <button onClick={() => { setOpen(false); onEdit(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-            style={{ color: 'var(--foreground)' }}>
-            <Pencil className="w-4 h-4 text-muted-foreground" /> Edit
+        <div className="absolute right-0 top-full mt-1 w-32 rounded-lg shadow-lg border border-border bg-card overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onEdit()
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium hover:bg-muted transition-colors text-left text-foreground"
+          >
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" /> Edit
           </button>
-          <button onClick={() => { setOpen(false); onArchive(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-red-500/10 transition-colors text-left"
-            style={{ color: '#ef4444' }}>
-            <Archive className="w-4 h-4" /> Archive
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onArchive()
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium hover:bg-red-500/10 transition-colors text-left text-red-600"
+          >
+            <Archive className="w-3.5 h-3.5" /> Archive
           </button>
         </div>
       )}
@@ -91,26 +97,47 @@ export default function AccountsIndex() {
   const [searchQuery, setSearchQuery] = useState('')
   const [accountToArchive, setAccountToArchive] = useState(null)
   const [clearActivityOpen, setClearActivityOpen] = useState(false)
-  const [filterType, setFilterType] = useState('All')
+  const [platformFilter, setPlatformFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'ready' | 'cooldown'
   const [sortBy, setSortBy] = useState('soonest')
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('ap-accounts-view') || 'grid')
+  const [activityOpen, setActivityOpen] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState(null)
   const [timerToSetRemaining, setTimerToSetRemaining] = useState(null)
+  const [copiedId, setCopiedId] = useState(null)
+
   const now = useNow()
   const { addToast } = useToast()
+
+  function toggleViewMode(mode) {
+    setViewMode(mode)
+    localStorage.setItem('ap-accounts-view', mode)
+  }
+
+  function handleCopyEmail(e, acc) {
+    e.preventDefault()
+    e.stopPropagation()
+    navigator.clipboard.writeText(acc.email)
+    setCopiedId(acc.id)
+    addToast({ type: 'success', message: 'Email copied to clipboard' })
+    setTimeout(() => setCopiedId(prev => (prev === acc.id ? null : prev)), 1400)
+  }
 
   async function handleSaveRemainingTime({ days, hours, minutes }) {
     if (!timerToSetRemaining) return
     const { timer, account } = timerToSetRemaining
-    const now = new Date()
-    const nextDue = addDuration(days, hours, minutes, now)
-    
-    const { error } = await supabase.from('token_timers').update({
-      next_due_at: nextDue.toISOString(),
-      last_refreshed_at: now.toISOString(),
-    }).eq('id', timer.id)
-    
+    const nowDate = new Date()
+    const nextDue = addDuration(days, hours, minutes, nowDate)
+
+    const { error } = await supabase
+      .from('token_timers')
+      .update({
+        next_due_at: nextDue.toISOString(),
+        last_refreshed_at: nowDate.toISOString(),
+      })
+      .eq('id', timer.id)
+
     if (error) {
       addToast({ type: 'error', message: `Failed to update timer: ${error.message}` })
       return
@@ -119,26 +146,40 @@ export default function AccountsIndex() {
     const totalMs = ((days * 24 + hours) * 60 + minutes) * 60 * 1000
     addToast({
       type: 'success',
-      message: `${timer.model_name || 'Timer'} will be ready in ${formatDuration(totalMs)}`
+      message: `${timer.model_name || 'Timer'} will be ready in ${formatDuration(totalMs)}`,
     })
 
-    await insertNotif(`${account.email} (${timer.model_name || 'Timer'}) remaining time set to ${formatDuration(totalMs)}`)
+    await insertNotif(
+      `${account.email} (${timer.model_name || 'Timer'}) remaining time set to ${formatDuration(totalMs)}`
+    )
     setTimerToSetRemaining(null)
     load()
   }
 
   const load = useCallback(async () => {
     const [{ data: acc }, { data: notifs }] = await Promise.all([
-      supabase.from('accounts').select('*, token_timers(*)').is('deleted_at', null).eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
+      supabase
+        .from('accounts')
+        .select('*, token_timers(*)')
+        .is('deleted_at', null)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(15),
     ])
     setAccounts(acc || [])
     setActivity(notifs || [])
     setLoading(false)
-    setTimeout(() => setIsLoaded(true), 100)
+    setTimeout(() => setIsLoaded(true), 60)
   }, [user])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   async function insertNotif(message) {
     await supabase.from('notifications').insert({ user_id: user.id, message, is_read: false })
@@ -150,7 +191,10 @@ export default function AccountsIndex() {
 
   async function executeArchive() {
     if (!accountToArchive) return
-    await supabase.from('accounts').update({ deleted_at: new Date().toISOString() }).eq('id', accountToArchive.id)
+    await supabase
+      .from('accounts')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', accountToArchive.id)
     await insertNotif(`${accountToArchive.platform} account archived`)
     setAccountToArchive(null)
     load()
@@ -158,19 +202,25 @@ export default function AccountsIndex() {
 
   async function handleDrainedNow(timer, account) {
     if (!timer || !timer.interval_hours) {
-      addToast({ type: 'info', message: 'No interval hours configured on this timer (use Clock to set time).' })
+      addToast({
+        type: 'info',
+        message: 'No interval hours configured on this timer (use Clock icon to set time).',
+      })
       return
     }
-    const now = new Date()
+    const nowDate = new Date()
     const cooldownMs = (timer.interval_hours || 0) * 3600000
-    const nextDue = new Date(now.getTime() + cooldownMs)
+    const nextDue = new Date(nowDate.getTime() + cooldownMs)
     const prevNextDueAt = timer.next_due_at
     const prevLastRefreshedAt = timer.last_refreshed_at
 
-    const { error } = await supabase.from('token_timers').update({
-      last_refreshed_at: now.toISOString(),
-      next_due_at: nextDue.toISOString()
-    }).eq('id', timer.id)
+    const { error } = await supabase
+      .from('token_timers')
+      .update({
+        last_refreshed_at: nowDate.toISOString(),
+        next_due_at: nextDue.toISOString(),
+      })
+      .eq('id', timer.id)
 
     if (error) {
       addToast({ type: 'error', message: `Failed to set cooldown: ${error.message}` })
@@ -184,50 +234,55 @@ export default function AccountsIndex() {
       action: {
         label: 'Undo',
         onClick: async () => {
-          await supabase.from('token_timers').update({
-            next_due_at: prevNextDueAt,
-            last_refreshed_at: prevLastRefreshedAt
-          }).eq('id', timer.id)
+          await supabase
+            .from('token_timers')
+            .update({
+              next_due_at: prevNextDueAt,
+              last_refreshed_at: prevLastRefreshedAt,
+            })
+            .eq('id', timer.id)
           addToast({ type: 'info', message: `Restored ${timer.model_name || 'Timer'} previous state` })
           load()
-        }
-      }
+        },
+      },
     })
 
-    await insertNotif(`${account.email} (${timer.model_name || 'Timer'}) marked as drained (${durationText} cooldown)`)
+    await insertNotif(
+      `${account.email} (${timer.model_name || 'Timer'}) marked as drained (${durationText} cooldown)`
+    )
     load()
-  }
-
-  // Backwards compatibility for existing callers
-  async function handleMarkRefreshed(timerId, intervalHours, email, modelName) {
-    return handleDrainedNow({ id: timerId, interval_hours: intervalHours, model_name: modelName }, { email })
   }
 
   async function executeClearActivity() {
     const { error } = await supabase.from('notifications').delete().eq('user_id', user.id)
-    if (error) {
-      console.error('[Clear Activity] Delete failed:', error)
-    } else {
+    if (!error) {
       setActivity([])
       setClearActivityOpen(false)
     }
   }
 
-  // Called by AccountModal after save - we pass email + isEdit to generate the right notification
   async function handleModalSave(email, isEdit) {
     await insertNotif(isEdit ? `${email} account updated` : `${email} account added`)
     load()
   }
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-32">
-      <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--ap-accent)', borderTopColor: 'transparent' }} />
-    </div>
-  )
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <div
+          className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: 'var(--ap-accent)', borderTopColor: 'transparent' }}
+        />
+      </div>
+    )
+  }
 
+  // Compute counts & unified platform categories
   let allCount = 0
   let readyCount = 0
   let cooldownCount = 0
+
+  const platformSummaryMap = new Map()
 
   accounts.forEach(a => {
     allCount++
@@ -236,390 +291,748 @@ export default function AccountsIndex() {
       if (isReady) readyCount++
       else cooldownCount++
     }
+
+    const unified = resolveUnifiedPlatform(a.platform, a.type, accounts, a.icon_url)
+    const existing = platformSummaryMap.get(unified.key)
+    if (existing) {
+      existing.count++
+      if (hasTimers !== false && isReady) existing.readyCount++
+    } else {
+      platformSummaryMap.set(unified.key, {
+        ...unified,
+        count: 1,
+        readyCount: hasTimers !== false && isReady ? 1 : 0,
+      })
+    }
   })
 
-  const filteredAccounts = accounts.filter(acc => {
-    const matchesSearch = acc.email.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          acc.platform.toLowerCase().includes(searchQuery.toLowerCase())
-    if (!matchesSearch) return false
-    if (filterType !== 'All' && acc.type !== filterType) return false
+  const unifiedPlatformCategories = Array.from(platformSummaryMap.values())
 
-    if (statusFilter !== 'all') {
-      const { isReady, hasTimers } = evaluateAccountStatus(acc, now)
-      // Accounts with no timers appear only under "All"
-      if (hasTimers === false) return false
-      if (statusFilter === 'ready' && !isReady) return false
-      if (statusFilter === 'cooldown' && isReady) return false
-    }
-    return true
-  }).sort((a, b) => {
-    if (sortBy === 'soonest' || sortBy === 'latest') {
-      const aHasTimers = a.token_timers && a.token_timers.some(t => !t.deleted_at)
-      const bHasTimers = b.token_timers && b.token_timers.some(t => !t.deleted_at)
+  const filteredAccounts = accounts
+    .filter(acc => {
+      const unified = resolveUnifiedPlatform(acc.platform, acc.type, accounts, acc.icon_url)
+      const q = searchQuery.toLowerCase()
+      const matchesSearch =
+        acc.email.toLowerCase().includes(q) ||
+        unified.name.toLowerCase().includes(q) ||
+        unified.category.toLowerCase().includes(q)
+      if (!matchesSearch) return false
+      if (platformFilter !== 'All' && unified.key !== platformFilter) return false
 
-      // Accounts with no timers always sort last and maintain stable secondary order
-      if (!aHasTimers && !bHasTimers) return a.email.localeCompare(b.email)
-      if (!aHasTimers) return 1
-      if (!bHasTimers) return -1
-
-      const aStatus = evaluateAccountStatus(a, now)
-      const bStatus = evaluateAccountStatus(b, now)
-      const aTime = aStatus.isReady ? 0 : aStatus.soonestAvailableMs
-      const bTime = bStatus.isReady ? 0 : bStatus.soonestAvailableMs
-
-      if (aTime !== bTime) {
-        return sortBy === 'soonest' ? aTime - bTime : bTime - aTime
+      if (statusFilter !== 'all') {
+        const { isReady, hasTimers } = evaluateAccountStatus(acc, now)
+        if (hasTimers === false) return false
+        if (statusFilter === 'ready' && !isReady) return false
+        if (statusFilter === 'cooldown' && isReady) return false
       }
-      return a.email.localeCompare(b.email)
-    }
-    if (sortBy === 'recent') {
-      return new Date(b.created_at) - new Date(a.created_at)
-    }
-    if (sortBy === 'oldest') {
-      return new Date(a.created_at) - new Date(b.created_at)
-    }
-    if (sortBy === 'asc') {
-      return a.email.localeCompare(b.email)
-    }
-    if (sortBy === 'desc') {
-      return b.email.localeCompare(a.email)
-    }
-    return 0
-  })
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'soonest' || sortBy === 'latest') {
+        const aHasTimers = a.token_timers && a.token_timers.some(t => !t.deleted_at)
+        const bHasTimers = b.token_timers && b.token_timers.some(t => !t.deleted_at)
 
-  const types = ['All', ...new Set(accounts.map(a => a.type))]
+        if (!aHasTimers && !bHasTimers) return a.email.localeCompare(b.email)
+        if (!aHasTimers) return 1
+        if (!bHasTimers) return -1
+
+        const aStatus = evaluateAccountStatus(a, now)
+        const bStatus = evaluateAccountStatus(b, now)
+        const aTime = aStatus.isReady ? 0 : aStatus.soonestAvailableMs
+        const bTime = bStatus.isReady ? 0 : bStatus.soonestAvailableMs
+
+        if (aTime !== bTime) {
+          return sortBy === 'soonest' ? aTime - bTime : bTime - aTime
+        }
+        return a.email.localeCompare(b.email)
+      }
+      if (sortBy === 'recent') return new Date(b.created_at) - new Date(a.created_at)
+      if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
+      if (sortBy === 'asc') return a.email.localeCompare(b.email)
+      if (sortBy === 'desc') return b.email.localeCompare(a.email)
+      return 0
+    })
+
+  // Group filtered accounts by unified platform category so logo & name are unified once per section
+  const groupedByPlatform = []
+  const groupLookup = new Map()
+  filteredAccounts.forEach(acc => {
+    const unified = resolveUnifiedPlatform(acc.platform, acc.type, accounts, acc.icon_url)
+    let grp = groupLookup.get(unified.key)
+    if (!grp) {
+      grp = { unified, items: [] }
+      groupLookup.set(unified.key, grp)
+      groupedByPlatform.push(grp)
+    }
+    grp.items.push(acc)
+  })
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* ── Top Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 shrink-0">
-        <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Accounts</h2>
-        <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
-            <input 
-              type="text" 
-              placeholder="Search..." 
+    <div className="flex flex-col h-full min-h-0 max-w-7xl mx-auto space-y-4">
+      {/* ── Unified Single Toolbar (Icon-Conserving) ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border shrink-0">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">Accounts</h1>
+
+          {/* Status Segmented Tabs */}
+          <div className="inline-flex p-0.5 rounded-lg border border-border bg-muted/50">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all tabular-nums ${
+                statusFilter === 'all'
+                  ? 'bg-card text-foreground shadow-xs border border-border/60'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              All ({allCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ready')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all tabular-nums ${
+                statusFilter === 'ready'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+              Ready ({readyCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('cooldown')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all tabular-nums ${
+                statusFilter === 'cooldown'
+                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Cooldown ({cooldownCount})
+            </button>
+          </div>
+        </div>
+
+        {/* Right Controls: Search + Compact Icon Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search Input */}
+          <div className="relative flex-1 sm:flex-initial sm:w-52">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Filter email or platform..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 transition-colors"
-              style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
             />
           </div>
-          <select 
-            value={filterType}
-            onChange={e => setFilterType(e.target.value)}
-            className="text-sm rounded-lg px-3 py-2 border focus:outline-none"
-            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+
+          {/* Sort Select */}
+          <div className="relative">
+            <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              title="Sort accounts"
+              className="text-xs rounded-lg pl-7 pr-2.5 py-1.5 border border-border bg-card text-foreground focus:outline-none cursor-pointer"
+            >
+              <option value="soonest">Soonest Ready</option>
+              <option value="latest">Longest Cooldown</option>
+              <option value="recent">Newest Added</option>
+              <option value="oldest">Oldest First</option>
+              <option value="asc">Email (A–Z)</option>
+              <option value="desc">Email (Z–A)</option>
+            </select>
+          </div>
+
+          {/* View Toggle: Cards vs Table (Icon-Only) */}
+          <div className="inline-flex p-0.5 rounded-lg border border-border bg-muted/50">
+            <button
+              type="button"
+              onClick={() => toggleViewMode('grid')}
+              title="Card Grid View"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleViewMode('table')}
+              title="Compact Table View"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Activity Drawer Button (Icon-Only) */}
+          <button
+            type="button"
+            onClick={() => setActivityOpen(true)}
+            title="Activity Feed"
+            className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-xs relative"
           >
-            {types.map(t => <option key={t} value={t}>{t === 'All' ? 'All Types' : t}</option>)}
-          </select>
-          <select 
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
-            className="text-sm rounded-lg px-3 py-2 border focus:outline-none"
-            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            <History className="w-3.5 h-3.5" />
+            {activity.length > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-primary absolute top-1.5 right-1.5" />
+            )}
+          </button>
+
+          {/* Archived Accounts Link (Icon-Only) */}
+          <Link
+            to="/accounts/archived"
+            title="Archived Accounts"
+            className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-xs"
           >
-            <option value="soonest">Sort: Soonest</option>
-            <option value="latest">Latest Cooldown</option>
-            <option value="recent">Recently Added</option>
-            <option value="oldest">Oldest First</option>
-            <option value="asc">Alphabetical (A-Z)</option>
-            <option value="desc">Alphabetical (Z-A)</option>
-          </select>
-          <Link to="/accounts/archived"
-            className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium transition-colors hover:bg-muted text-muted-foreground hover:text-foreground shadow-xs">
-            Archived
+            <Archive className="w-3.5 h-3.5" />
           </Link>
-          <button onClick={() => { setEditingAccount(null); setIsModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-semibold shadow-xs transition-colors">
-            <span className="hidden sm:inline">Add Account</span>
-            <span className="sm:hidden">Add</span>
+
+          {/* Add Account Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setEditingAccount(null)
+              setIsModalOpen(true)
+            }}
+            title="Add Account"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-semibold shadow-xs transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add</span>
           </button>
         </div>
       </div>
 
-      {/* ── Status Tabs (All / Ready now / On cooldown) ── */}
-      <div className="flex items-center gap-2 mb-5 shrink-0 overflow-x-auto pb-1">
-        <div className="inline-flex p-1 rounded-lg border border-border bg-muted/40">
+      {/* ── Unified AI Platform Category Filter Pills ── */}
+      {unifiedPlatformCategories.length > 1 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
           <button
             type="button"
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-              statusFilter === 'all'
-                ? 'bg-card text-foreground shadow-xs border border-border'
-                : 'text-muted-foreground hover:text-foreground'
+            onClick={() => setPlatformFilter('All')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all shrink-0 ${
+              platformFilter === 'All'
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-card text-muted-foreground hover:text-foreground'
             }`}
           >
-            All <span className="opacity-70 ml-1 font-mono">({allCount})</span>
+            All Categories ({accounts.length})
           </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('ready')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-              statusFilter === 'ready'
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-            Ready now <span className="opacity-70 ml-0.5 font-mono">({readyCount})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('cooldown')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-              statusFilter === 'cooldown'
-                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            On cooldown <span className="opacity-70 ml-0.5 font-mono">({cooldownCount})</span>
-          </button>
+          {unifiedPlatformCategories.map(cat => (
+            <button
+              key={cat.key}
+              type="button"
+              onClick={() => setPlatformFilter(cat.key === platformFilter ? 'All' : cat.key)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all shrink-0 ${
+                platformFilter === cat.key
+                  ? 'border-primary bg-primary/10 text-primary shadow-xs'
+                  : 'border-border bg-card text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <UnifiedPlatformIcon
+                platform={cat.name}
+                type={cat.category}
+                allAccounts={accounts}
+                iconUrl={cat.iconUrl}
+                size="sm"
+                className="w-4 h-4 rounded text-[9px]"
+              />
+              <span>{cat.name}</span>
+              <span className="opacity-70 font-mono text-[11px]">({cat.count})</span>
+            </button>
+          ))}
         </div>
-      </div>
+      )}
 
-      {/* ── Content Layout ── */}
-      <div className={`transition-all duration-700 flex flex-col lg:flex-row items-start gap-5 flex-1 min-h-0 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        
-        {/* Left Side: Card Grid */}
-        <div className="flex-1 w-full min-w-0">
-          {filteredAccounts.length === 0 ? (
-            <div className="rounded-2xl border flex flex-col items-center justify-center py-24 px-4 text-center"
-              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-              <p className="font-medium" style={{ color: 'var(--muted-foreground)' }}>No accounts found</p>
-              <button onClick={() => { setEditingAccount(null); setIsModalOpen(true) }}
-                className="mt-2 text-sm hover:underline" style={{ color: 'var(--ap-accent)' }}>Add a new account →</button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredAccounts.map(acc => {
-                const color = getPlatformColor(acc.platform)
-                const initial = acc.platform?.[0]?.toUpperCase() || '?'
-                const accountStatus = evaluateAccountStatus(acc, now)
-                const groups = accountStatus.groups || []
+      {/* ── Full-Width Accounts Content grouped by Unified AI Platform Category ── */}
+      <div
+        className={`transition-all duration-300 flex-1 min-h-0 space-y-6 ${
+          isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+        }`}
+      >
+        {filteredAccounts.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card flex flex-col items-center justify-center py-20 px-4 text-center">
+            <p className="text-sm font-semibold text-foreground">No matching accounts</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Try adjusting your filter or add a new account.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAccount(null)
+                setIsModalOpen(true)
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Account
+            </button>
+          </div>
+        ) : (
+          groupedByPlatform.map(({ unified, items }) => {
+            const groupReadyCount = items.filter(a => {
+              const st = evaluateAccountStatus(a, now)
+              return st.hasTimers !== false && st.isReady
+            }).length
 
-                return (
-                  <div key={acc.id} 
-                    className="rounded-xl border border-border bg-card flex flex-col p-5 transition-all shadow-xs hover:border-border/80"
-                  >
-                    {/* Top Row with Platform, Type, Email + Copy Button, and CardMenu */}
-                    <div className="flex items-start justify-between pb-3.5 border-b border-border">
-                      <div className="flex items-start gap-3 min-w-0 pr-2">
-                        {acc.icon_url ? (
-                          <img src={acc.icon_url} alt={acc.platform} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/60" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white font-bold text-base shadow-xs" style={{ background: color }}>
-                            {initial}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold truncate text-sm leading-tight text-foreground">{acc.platform}</p>
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{acc.type}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <p className="text-xs truncate font-mono text-muted-foreground" title={acc.email}>{acc.email}</p>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                navigator.clipboard.writeText(acc.email)
-                                addToast({ type: 'success', message: 'Email copied to clipboard' })
-                              }}
-                              className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
-                              title="Copy email to clipboard"
-                            >
-                              <Copy className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="shrink-0 -mr-1.5">
-                        <CardMenu 
-                          onEdit={() => { setEditingAccount(acc); setIsModalOpen(true); }}
-                          onArchive={() => handleArchiveClick(acc)}
-                        />
-                      </div>
+            return (
+              <section key={unified.key} className="space-y-3">
+                {/* ── Unified Platform Category Header (Unifies AI Logo & Name once for all cards!) ── */}
+                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-border bg-card shadow-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <UnifiedPlatformIcon
+                      platform={unified.name}
+                      type={unified.category}
+                      allAccounts={accounts}
+                      iconUrl={unified.iconUrl}
+                      size="md"
+                    />
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <h2 className="text-sm font-bold text-foreground tracking-tight truncate">
+                        {unified.name}
+                      </h2>
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                        {unified.category}
+                      </span>
                     </div>
+                  </div>
 
-                    {/* Stack of Sub-Timer Groups (Clean non-nested layout) */}
-                    {groups.length === 0 ? (
-                      <div className="py-4 text-center mt-3 rounded-lg border border-dashed border-border bg-muted/20">
-                        <p className="text-xs text-muted-foreground">No timers configured</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-border/60">
-                        {groups.map(group => {
-                          const isGroupReady = group.isReady
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className="px-2.5 py-0.5 rounded-full text-xs font-semibold border tabular-nums"
+                      style={{
+                        background: 'var(--ready-bg)',
+                        color: 'var(--ready-text)',
+                        borderColor: 'var(--ready-border)',
+                      }}
+                    >
+                      {groupReadyCount} / {items.length} Ready
+                    </span>
+                  </div>
+                </div>
 
-                          return (
-                            <div key={group.groupName} className="pt-3 pb-1 first:pt-3">
-                              {/* Group Header: Group Name + Quiet Status Chip */}
-                              <div className="flex items-center justify-between gap-2 mb-2">
-                                <span className="text-xs font-semibold truncate text-foreground">
-                                  {group.groupName}
-                                </span>
+                {/* ── MODE A: EMAIL-FIRST CLEAN CARDS (3-Column Full Width) ── */}
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                    {items.map(acc => {
+                      const accountStatus = evaluateAccountStatus(acc, now)
+                      const groups = accountStatus.groups || []
+                      const [emailUser, emailDomain] = (acc.email || '').split('@')
 
-                                {/* Status Chip: Calm Muted Tones */}
-                                <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 border shrink-0 ${
-                                  isGroupReady
-                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                                }`}>
-                                  {isGroupReady ? (
-                                    <>
-                                      <Check className="w-3 h-3 stroke-[2.5]" />
-                                      <span>Ready</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Clock className="w-3 h-3" />
-                                      <span>{group.formatted}</span>
-                                    </>
-                                  )}
-                                </span>
-                              </div>
+                      return (
+                        <div
+                          key={acc.id}
+                          className="rounded-xl border border-border bg-card flex flex-col p-4 transition-all shadow-xs hover:border-border/80"
+                        >
+                          {/* Card Top Row: Email-First (Full Readable Handle) + Icon Actions */}
+                          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  accountStatus.hasTimers === false
+                                    ? 'bg-slate-400'
+                                    : accountStatus.isReady
+                                      ? 'bg-emerald-500'
+                                      : 'bg-amber-500'
+                                }`}
+                                title={accountStatus.isReady ? 'Account ready' : 'Account on cooldown'}
+                              />
+                              <p
+                                className="text-xs sm:text-sm font-bold font-mono text-foreground truncate"
+                                title={acc.email}
+                              >
+                                {emailUser}
+                                {emailDomain && (
+                                  <span className="text-muted-foreground font-normal">@{emailDomain}</span>
+                                )}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={e => handleCopyEmail(e, acc)}
+                                className="w-6 h-6 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                                title="Copy email"
+                              >
+                                {copiedId === acc.id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
 
-                              {/* Individual Timers in this Group */}
-                              <div className="space-y-1">
-                                {group.timers.map(timer => {
-                                  const modelColor = timer.color || '#2563eb'
-                                  const hasInterval = (timer.interval_hours || 0) > 0
+                            <div className="shrink-0 -mr-1">
+                              <CardMenu
+                                onEdit={() => {
+                                  setEditingAccount(acc)
+                                  setIsModalOpen(true)
+                                }}
+                                onArchive={() => handleArchiveClick(acc)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Model Timer Groups (Single Status Badge per Group + Icon-Only Controls) */}
+                          {groups.length === 0 ? (
+                            <div className="py-3 text-center mt-2 rounded-lg border border-dashed border-border bg-muted/20">
+                              <p className="text-xs text-muted-foreground">No timers configured</p>
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-border/60 mt-0.5">
+                              {groups.map(group => {
+                                const isSingleTimer = group.timers.length === 1
+                                const singleTimer = isSingleTimer ? group.timers[0] : null
+
+                                // Case 1: Group has 1 timer -> Single consolidated row (NO double Ready badges!)
+                                if (isSingleTimer && singleTimer) {
+                                  const modelColor = singleTimer.color || '#2563eb'
+                                  const hasInterval = (singleTimer.interval_hours || 0) > 0
+                                  const subLabel =
+                                    singleTimer.model_name &&
+                                    singleTimer.model_name.toLowerCase() !== group.groupName.toLowerCase()
+                                      ? singleTimer.model_name
+                                      : null
 
                                   return (
-                                    <div key={timer.id} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-md hover:bg-muted/40 transition-colors">
-                                      {/* Timer name with model color dot */}
-                                      <div className="flex items-center gap-2 min-w-0 pr-2">
-                                        <span 
-                                          className="w-2 h-2 rounded-full shrink-0" 
-                                          style={{ backgroundColor: modelColor }} 
-                                          title={`Model color: ${modelColor}`} 
+                                    <div
+                                      key={group.groupName}
+                                      className="py-2.5 first:pt-2.5 last:pb-0.5 flex items-center justify-between gap-2"
+                                    >
+                                      {/* Left: Dot + Group Name + subtle model version */}
+                                      <div className="flex items-center gap-2 min-w-0 pr-1">
+                                        <span
+                                          className="w-2 h-2 rounded-full shrink-0"
+                                          style={{ backgroundColor: modelColor }}
                                         />
-                                        <span className="truncate text-muted-foreground font-medium text-xs" title={timer.model_name}>
-                                          {timer.model_name || 'Timer'}
-                                        </span>
+                                        <div className="flex items-baseline gap-1.5 min-w-0 truncate">
+                                          <span className="text-xs font-semibold text-foreground truncate">
+                                            {group.groupName}
+                                          </span>
+                                          {subLabel && (
+                                            <span className="text-[11px] text-muted-foreground truncate">
+                                              {subLabel}
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
 
-                                      {/* Actions & Countdown */}
-                                      <div className="flex items-center gap-1.5 shrink-0">
-                                        <span className="text-xs font-mono tabular-nums text-foreground">
-                                          <CountdownTimer
-                                            nextDueAt={timer.next_due_at}
-                                            accountId={acc.id}
-                                            platform={acc.platform}
-                                            email={acc.email}
-                                            userId={user.id}
-                                            modelName={timer.model_name}
-                                          />
-                                        </span>
+                                      {/* Right: ONE Status/Countdown Chip + Icon-Only Action Buttons */}
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <CountdownTimer nextDueAt={singleTimer.next_due_at} />
 
-                                        {/* Set remaining time button */}
-                                        <button 
-                                          onClick={() => setTimerToSetRemaining({ timer, account: acc })}
-                                          className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                          title="Set remaining time"
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setTimerToSetRemaining({ timer: singleTimer, account: acc })
+                                          }
+                                          className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                          title="Set custom remaining time"
                                         >
-                                          <Clock className="w-3 h-3" />
+                                          <Clock className="w-3.5 h-3.5" />
                                         </button>
 
-                                        {/* Drained now (start cooldown) button */}
-                                        <button 
-                                          onClick={() => hasInterval && handleDrainedNow(timer, acc)}
+                                        <button
+                                          type="button"
+                                          onClick={() => hasInterval && handleDrainedNow(singleTimer, acc)}
                                           disabled={!hasInterval}
-                                          className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
-                                            hasInterval 
-                                              ? 'text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer' 
+                                          className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+                                            hasInterval
+                                              ? 'text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer'
                                               : 'opacity-30 cursor-not-allowed'
                                           }`}
-                                          title={hasInterval ? "Drained now (start cooldown)" : "Cannot drain: no interval hours configured (use Clock instead)"}
+                                          title={
+                                            hasInterval
+                                              ? 'Mark drained (start cooldown)'
+                                              : 'No interval configured'
+                                          }
                                         >
-                                          <RotateCcw className="w-3 h-3" />
+                                          <RotateCcw className="w-3.5 h-3.5" />
                                         </button>
                                       </div>
                                     </div>
                                   )
-                                })}
-                              </div>
+                                }
+
+                                // Case 2: Group has multiple timers (e.g. 5h + Weekly) -> Group summary badge once, sub-timers without duplicate Ready pills
+                                return (
+                                  <div key={group.groupName} className="py-2.5 first:pt-2.5 last:pb-0.5">
+                                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                                      <span className="text-xs font-semibold text-foreground truncate">
+                                        {group.groupName}
+                                      </span>
+                                      <span
+                                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 border shrink-0 tabular-nums"
+                                        style={
+                                          group.isReady
+                                            ? {
+                                                background: 'var(--ready-bg)',
+                                                color: 'var(--ready-text)',
+                                                borderColor: 'var(--ready-border)',
+                                              }
+                                            : {
+                                                background: 'var(--cooldown-bg)',
+                                                color: 'var(--cooldown-text)',
+                                                borderColor: 'var(--cooldown-border)',
+                                              }
+                                        }
+                                      >
+                                        {group.isReady ? (
+                                          <>
+                                            <Check className="w-3 h-3 stroke-[2.5]" />
+                                            <span>Ready</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Clock className="w-3 h-3" />
+                                            <span>{group.formatted}</span>
+                                          </>
+                                        )}
+                                      </span>
+                                    </div>
+
+                                    <div className="space-y-1 pl-2 border-l-2 border-border/60">
+                                      {group.timers.map(timer => {
+                                        const modelColor = timer.color || '#2563eb'
+                                        const hasInterval = (timer.interval_hours || 0) > 0
+                                        const timerDue = timer.next_due_at
+                                          ? new Date(timer.next_due_at).getTime()
+                                          : 0
+                                        const timerCooling = timerDue > now
+
+                                        return (
+                                          <div
+                                            key={timer.id}
+                                            className="flex items-center justify-between text-xs py-0.5 pl-1.5 pr-0.5 rounded hover:bg-muted/40 transition-colors"
+                                          >
+                                            <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                                              <span
+                                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                                style={{ backgroundColor: modelColor }}
+                                              />
+                                              <span className="truncate text-muted-foreground font-medium text-[11px]">
+                                                {timer.model_name || 'Timer'}
+                                              </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              {timerCooling && (
+                                                <CountdownTimer nextDueAt={timer.next_due_at} />
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setTimerToSetRemaining({ timer, account: acc })
+                                                }
+                                                className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                                title="Set remaining time"
+                                              >
+                                                <Clock className="w-3 h-3" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => hasInterval && handleDrainedNow(timer, acc)}
+                                                disabled={!hasInterval}
+                                                className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+                                                  hasInterval
+                                                    ? 'text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer'
+                                                    : 'opacity-30 cursor-not-allowed'
+                                                }`}
+                                                title="Mark drained (start cooldown)"
+                                              >
+                                                <RotateCcw className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                )
+                              })}
                             </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  /* ── MODE B: COMPACT TABLE VIEW ── */
+                  <div className="rounded-xl border border-border bg-card shadow-xs overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          <th className="py-2.5 px-4">Account Email</th>
+                          <th className="py-2.5 px-4">Model Quotas &amp; Quick Actions</th>
+                          <th className="py-2.5 px-4 text-right w-16">Menu</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border text-xs">
+                        {items.map(acc => {
+                          const accountStatus = evaluateAccountStatus(acc, now)
+                          const groups = accountStatus.groups || []
+                          return (
+                            <tr key={acc.id} className="hover:bg-muted/20 transition-colors">
+                              <td className="py-2.5 px-4 font-mono font-bold text-foreground whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                      accountStatus.isReady ? 'bg-emerald-500' : 'bg-amber-500'
+                                    }`}
+                                  />
+                                  <span>{acc.email}</span>
+                                  <button
+                                    type="button"
+                                    onClick={e => handleCopyEmail(e, acc)}
+                                    className="w-6 h-6 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                    title="Copy email"
+                                  >
+                                    {copiedId === acc.id ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {groups.map(group => {
+                                    const primaryTimer = group.timers[0]
+                                    const hasInterval = primaryTimer && (primaryTimer.interval_hours || 0) > 0
+                                    return (
+                                      <div
+                                        key={group.groupName}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-background"
+                                      >
+                                        <span className="font-semibold text-foreground">{group.groupName}</span>
+                                        {primaryTimer && (
+                                          <>
+                                            <CountdownTimer nextDueAt={primaryTimer.next_due_at} />
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setTimerToSetRemaining({ timer: primaryTimer, account: acc })
+                                              }
+                                              className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                                              title="Set remaining time"
+                                            >
+                                              <Clock className="w-3 h-3" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => hasInterval && handleDrainedNow(primaryTimer, acc)}
+                                              disabled={!hasInterval}
+                                              className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
+                                              title="Mark drained (start cooldown)"
+                                            >
+                                              <RotateCcw className="w-3 h-3" />
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-4 text-right">
+                                <div className="inline-flex justify-end">
+                                  <CardMenu
+                                    onEdit={() => {
+                                      setEditingAccount(acc)
+                                      setIsModalOpen(true)
+                                    }}
+                                    onArchive={() => handleArchiveClick(acc)}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
                           )
                         })}
-                      </div>
-                    )}
+                      </tbody>
+                    </table>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right Side: Activity Feed Panel */}
-        <div className="w-full lg:w-[280px] shrink-0 lg:sticky lg:top-4 rounded-xl flex flex-col bg-card border border-border shadow-xs"
-          style={{ maxHeight: 'calc(100vh - 7rem)' }}>
-          <div className="px-5 py-3.5 flex items-center justify-between border-b border-border bg-card rounded-t-xl">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Activity Feed</h3>
-            {activity.length > 0 && (
-              <button onClick={() => setClearActivityOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                title="Clear activity history">
-                <Eraser className="w-3.5 h-3.5" />
-                Clear
-              </button>
-            )}
-          </div>
-          
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            {activity.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-xs text-muted-foreground">No recent activity</p>
-              </div>
-            ) : (
-              <div className="relative">
-                {activity.map((n, idx) => {
-                  const matchingAcc = accounts.find(a => n.message.includes(a.email))
-                  const platName = matchingAcc ? matchingAcc.platform : 'A'
-                  const iconUrl = matchingAcc?.icon_url
-                  const displayMsg = n.message
-                  
-                  return (
-                    <div key={n.id} className="flex gap-3 relative pb-4 last:pb-1">
-                      {idx !== activity.length - 1 && (
-                        <div className="absolute left-3.5 top-6 bottom-0 w-px bg-border" />
-                      )}
-                      
-                      {/* Avatar */}
-                      <div className="relative z-10 shrink-0">
-                        {iconUrl ? (
-                          <img src={iconUrl} alt={platName} className="w-7 h-7 rounded-lg object-cover border border-border" />
-                        ) : (
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-xs"
-                            style={{ background: getPlatformColor(platName) }}>
-                            {platName[0].toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="min-w-0 pt-0.5">
-                        <p className="text-xs font-medium leading-relaxed text-foreground">{displayMsg}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(n.created_at)}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
+                )}
+              </section>
+            )
+          })
+        )}
       </div>
 
-      <AccountModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        account={editingAccount} 
-        onSave={(email) => handleModalSave(email, !!editingAccount)} 
+      {/* ── Slide-Over Activity Feed Drawer (Frees 100% Width for Accounts) ── */}
+      {activityOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[1px] animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-card border-l border-border h-full flex flex-col shadow-xl animate-in slide-in-from-right duration-200">
+            <div className="px-4 py-3.5 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Activity Feed</h3>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {activity.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setClearActivityOpen(true)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    title="Clear activity history"
+                  >
+                    <Eraser className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActivityOpen(false)}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  title="Close drawer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {activity.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-xs text-muted-foreground">No recent activity</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {activity.map(n => {
+                    const matchingAcc = accounts.find(a => n.message.includes(a.email))
+                    return (
+                      <div key={n.id} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-muted/40 border border-border/50">
+                        <UnifiedPlatformIcon
+                          platform={matchingAcc?.platform || 'Account'}
+                          type={matchingAcc?.type || ''}
+                          allAccounts={accounts}
+                          iconUrl={matchingAcc?.icon_url}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium leading-relaxed text-foreground">{n.message}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(n.created_at)}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      <AccountModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        account={editingAccount}
+        onSave={email => handleModalSave(email, !!editingAccount)}
       />
 
       <SensitiveActionModal
