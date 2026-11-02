@@ -55,57 +55,28 @@ function advanceDate(dateStr, interval, customDays) {
   return d.toISOString()
 }
 
-// ─── Progress Bar ───
-function ProgressBar({ pct, barColor, barGlow, pulse, isPaused, tooltip }) {
+// ─── Clean Progress Bar ───
+function ProgressBar({ pct, barColor, isPaused, tooltip }) {
   const [show, setShow] = useState(false)
   const barStyle = {
     height: '100%',
     borderRadius: '9999px',
     width: `${pct}%`,
-    background: isPaused
-      ? 'rgba(128,128,128,0.4)'
-      : `linear-gradient(90deg, ${barColor}cc, ${barColor})`,
-    boxShadow: isPaused ? 'none' : barGlow,
-    transition: 'width 0.6s ease, box-shadow 0.3s ease',
-    animation: pulse && !isPaused ? 'barPulse 1.8s ease-in-out infinite' : 'none',
+    background: isPaused ? 'var(--muted-foreground)' : barColor,
+    transition: 'width 0.4s ease',
   }
   return (
-    <div className="relative mb-6 mt-1.5">
+    <div className="relative mb-5 mt-2">
       <div
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
-        style={{ height: '5px', borderRadius: '9999px', overflow: 'visible', background: 'rgba(128,128,128,0.12)', cursor: 'default', position: 'relative' }}
+        className="w-full h-1.5 rounded-full bg-muted cursor-default relative overflow-hidden"
       >
         <div style={barStyle} />
       </div>
       {show && tooltip && (
-        <div style={{
-          position: 'absolute',
-          bottom: '12px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          color: 'var(--foreground)',
-          fontSize: '11px',
-          padding: '4px 9px',
-          borderRadius: '6px',
-          whiteSpace: 'nowrap',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-          zIndex: 30,
-          pointerEvents: 'none',
-        }}>
+        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-popover border border-border text-popover-foreground text-xs px-2.5 py-1 rounded-md shadow-md whitespace-nowrap z-30 pointer-events-none">
           {tooltip}
-          <div style={{
-            position: 'absolute',
-            bottom: '-5px',
-            left: '50%',
-            width: '8px', height: '8px',
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderTop: 'none', borderLeft: 'none',
-            transform: 'translateX(-50%) rotate(45deg)',
-          }} />
         </div>
       )}
     </div>
@@ -762,20 +733,18 @@ export default function SubscriptionsIndex() {
           {/* Calendar Toggle */}
           <button
             onClick={() => toggleView(viewMode === 'grid' ? 'calendar' : 'grid')}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-all"
-            style={{
-              background: viewMode === 'calendar' ? 'transparent' : 'var(--card)',
-              borderColor: viewMode === 'calendar' ? '#4f46e5' : 'var(--border)',
-              color: viewMode === 'calendar' ? '#4f46e5' : 'var(--muted-foreground)',
-            }}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm rounded-lg border font-medium transition-colors shadow-xs ${
+              viewMode === 'calendar'
+                ? 'bg-primary/10 border-primary text-primary'
+                : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
           >
             <Calendar className="w-4 h-4" />
             <span className="hidden sm:inline">{viewMode === 'calendar' ? 'Grid View' : 'Calendar'}</span>
           </button>
           <button
             onClick={() => { setEditingSub(null); setIsModalOpen(true) }}
-            className="px-4 py-2 text-sm rounded-lg text-white font-medium transition-all hover:opacity-90 shadow-sm"
-            style={{ background: 'var(--ap-accent)' }}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors"
           >
             + Add Sub
           </button>
@@ -1006,22 +975,12 @@ export default function SubscriptionsIndex() {
                   const isDue3d = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3
                   const isDue7d = daysLeft !== null && daysLeft > 3 && daysLeft <= 7
 
-                  let barColor = catColor, barGlow = `0 0 6px ${catColor}66`, barPulse = false
-                  if (isPaused) { barColor = 'rgba(128,128,128,0.5)'; barGlow = 'none' }
-                  else if (isOverdue || isDueToday || isDue3d) { barColor = '#ef4444'; barGlow = '0 0 8px rgba(239,68,68,0.6)'; barPulse = true }
-                  else if (isDue7d) { barColor = '#f59e0b'; barGlow = '0 0 6px rgba(245,158,11,0.5)' }
+                  let barColor = 'var(--primary)'
+                  if (isPaused) { barColor = 'var(--muted-foreground)' }
+                  else if (isOverdue || isDueToday || isDue3d) { barColor = '#ef4444' }
+                  else if (isDue7d) { barColor = '#f59e0b' }
 
                   const barPct = (isOverdue || isDueToday) ? 100 : progressPct
-                  let statusBadge = { label: 'Active', bg: `${catColor}22`, text: catColor }
-                  if (isPaused) statusBadge = { label: 'Paused', bg: 'color-mix(in srgb,#f59e0b 20%,transparent)', text: '#f59e0b' }
-                  else if (isDue3d || isDueToday || isOverdue) statusBadge = { label: 'Due Soon', bg: 'color-mix(in srgb,#ef4444 20%,transparent)', text: '#ef4444' }
-                  else if (isDue7d) statusBadge = { label: 'Due Soon', bg: 'color-mix(in srgb,#f59e0b 20%,transparent)', text: '#f59e0b' }
-
-                  const cycleBadge = !isPaused && sub.billing_interval === 'quarterly'
-                    ? { label: 'Quarterly', bg: 'color-mix(in srgb,#06b6d4 15%,transparent)', text: '#06b6d4' }
-                    : !isPaused && sub.billing_interval === 'annually'
-                    ? { label: 'Annual', bg: 'color-mix(in srgb,#2563eb 15%,transparent)', text: '#2563eb' }
-                    : null
 
                   let cycleLabel = '/ mo'
                   if (sub.billing_interval === 'quarterly') cycleLabel = '/ qtr'
@@ -1034,49 +993,40 @@ export default function SubscriptionsIndex() {
 
                   return (
                     <div key={sub.id}
-                      className="rounded-2xl border flex flex-col transition-all duration-300 relative group overflow-hidden"
-                      style={{
-                        background: 'var(--card)',
-                        borderColor: 'var(--border)',
-                        borderTop: `3px solid ${catColor}`,
-                        padding: '1.25rem 1.5rem 1.5rem',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 4px 25px -5px color-mix(in srgb, var(--ap-accent2) 20%, transparent)` }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}
+                      className="rounded-xl border border-border bg-card p-5 flex flex-col transition-all shadow-xs hover:border-border/80"
                     >
                       {/* Top Row */}
-                      <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center justify-between mb-5">
                         <div className="flex items-center gap-3 min-w-0 pr-4 flex-1">
                           {sub.icon_url ? (
-                            <img src={sub.icon_url} alt={sub.service_name} className="w-10 h-10 rounded-[10px] object-cover shrink-0 border shadow-sm" style={{ borderColor: 'var(--border)' }} />
+                            <img src={sub.icon_url} alt={sub.service_name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-border/60" />
                           ) : (
-                            <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 text-white font-bold text-lg shadow-sm" style={{ background: getPlatformColor(sub.service_name) }}>
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white font-bold text-base shadow-xs" style={{ background: getPlatformColor(sub.service_name) }}>
                               {initial}
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="font-bold truncate text-[16px] tracking-tight w-full flex items-center gap-1.5" style={{ color: 'var(--foreground)' }}>
+                            <p className="font-semibold truncate text-sm leading-tight text-foreground flex items-center gap-1.5">
                               {sub.service_name}
                               {isPaused && <span className="text-amber-500 text-xs">⏸</span>}
                             </p>
                             {sub.category ? (
                               <div className="mt-1">
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white uppercase tracking-wider" style={{ background: CATEGORY_COLORS[sub.category] || '#2563eb' }}>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border/60">
                                   {sub.category}
                                 </span>
                               </div>
                             ) : (
                               <button
                                 onClick={() => { setEditingSub(sub); setIsModalOpen(true) }}
-                                className="text-[10px] mt-0.5 hover:underline"
-                                style={{ color: 'var(--muted-foreground)', opacity: 0.6 }}
+                                className="text-[10px] mt-0.5 text-muted-foreground hover:underline"
                               >
                                 + Add category
                               </button>
                             )}
                           </div>
                         </div>
-                        <div className="shrink-0 -mr-2 relative top-[-2px]">
+                        <div className="shrink-0 -mr-1.5">
                           <CardMenu
                             onEdit={() => { setEditingSub(sub); setIsModalOpen(true) }}
                             onArchive={() => handleArchiveClick(sub)}
@@ -1088,27 +1038,27 @@ export default function SubscriptionsIndex() {
                       </div>
 
                       {/* Pricing Row */}
-                      <div className="flex items-end justify-between mb-2">
+                      <div className="flex items-baseline justify-between mb-1">
                         <div>
-                          <span className="text-[22px] font-bold tracking-tight" style={{ color: isPaused ? 'var(--muted-foreground)' : 'var(--foreground)' }}>
+                          <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground tabular-nums">
                             {sub.currency} {parseFloat(sub.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
-                          <span className="text-xs ml-1 font-medium" style={{ color: 'var(--muted-foreground)' }}>{cycleLabel}</span>
+                          <span className="text-xs ml-1 text-muted-foreground">{cycleLabel}</span>
                         </div>
-                        <span className="text-xs font-semibold pb-1" style={{ color: barColor }}>
+                        <span className="text-xs font-semibold" style={{ color: barColor }}>
                           {daysLeft !== null ? (isOverdue ? 'Overdue' : isDueToday ? 'Due today' : `${daysLeft}d left`) : '—'}
                         </span>
                       </div>
 
-                      <ProgressBar pct={barPct} barColor={barColor} barGlow={barGlow} pulse={barPulse} isPaused={isPaused} tooltip={tooltipText} />
+                      <ProgressBar pct={barPct} barColor={barColor} isPaused={isPaused} tooltip={tooltipText} />
 
                       {/* Footer */}
-                      <div className="mt-auto pt-4 flex items-center justify-between border-t" style={{ borderColor: 'color-mix(in srgb, var(--border) 60%, transparent)' }}>
-                        <p className="text-xs font-medium flex items-center gap-1.5" style={{ color: 'var(--muted-foreground)' }}>
-                          Next Bill: <span style={{ color: 'var(--foreground)' }}>{formatDateShort(sub.next_billing_date)}</span>
+                      <div className="mt-auto pt-3 flex items-center justify-between border-t border-border">
+                        <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                          Next Bill: <span className="text-foreground">{formatDateShort(sub.next_billing_date)}</span>
                           {sub.payment_method && (
                             <>
-                              <span className="text-[10px] text-slate-400">•</span>
+                              <span className="text-muted-foreground">•</span>
                               <CreditCard className="w-3 h-3" />
                               <span>{sub.payment_method}</span>
                             </>
@@ -1116,7 +1066,7 @@ export default function SubscriptionsIndex() {
                         </p>
                         <div className="flex items-center gap-1.5">
                           {isOverdue && !isPaused && (
-                            <div className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider" style={{ background: '#ef444420', color: '#ef4444' }}>Overdue</div>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800">Overdue</span>
                           )}
                           {cycleBadge && (
                             <div className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0"
