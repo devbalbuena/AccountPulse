@@ -9,7 +9,7 @@ import { useNow } from '@/context/TimeContext'
 import { checkGroupReadyTransitions, resetGroupReadyWatcher } from '@/lib/groupNotificationWatcher'
 import {
   LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X, ChevronRight as ChevronRightIcon,
-  Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle
+  Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle, Archive
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -204,13 +204,12 @@ export default function AppLayout() {
       >
         {/* Logo */}
         <div className={`flex items-center gap-2.5 px-4 mb-7 ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}>
-            <span className="text-white text-xs font-black">AP</span>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-primary text-primary-foreground font-black text-xs">
+            AP
           </div>
           {!collapsed && (
-            <span className="text-sm font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
-              Account<span style={{ color: 'var(--ap-accent)' }}>Pulse</span>
+            <span className="text-sm font-bold tracking-tight text-foreground">
+              Account<span className="text-primary">Pulse</span>
             </span>
           )}
         </div>
@@ -228,34 +227,28 @@ export default function AppLayout() {
                 to={item.to}
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative group
+                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors relative group
                   ${collapsed ? 'justify-center' : ''}
                   ${isActive
-                    ? 'text-white shadow-sm'
-                    : ''
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`
                 }
-                style={({ isActive }) => isActive ? {
-                  background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)',
-                  boxShadow: '0 4px 12px color-mix(in srgb, var(--ap-accent) 30%, transparent)'
-                } : {}}
               >
                 {({ isActive }) => (
                   <>
-                    <div style={{ color: isActive ? 'white' : 'var(--muted-foreground)' }} 
-                      className={`transition-colors ${!isActive && 'group-hover:text-foreground'}`}>
+                    <div className="transition-colors">
                       {item.icon}
                     </div>
                     {!collapsed && (
-                      <span style={{ color: isActive ? 'white' : 'var(--muted-foreground)' }}
-                        className={`transition-colors ${!isActive && 'group-hover:text-foreground'}`}>
+                      <span className="transition-colors">
                         {item.label}
                       </span>
                     )}
                     
                     {/* Badge */}
                     {showBadge && (
-                      <span className="absolute top-1 right-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-background">
+                      <span className="absolute top-2 right-2.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white shadow-xs">
                         {badgeText}
                       </span>
                     )}
@@ -272,21 +265,19 @@ export default function AppLayout() {
           <button
             onClick={toggle}
             title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-muted ${collapsed ? 'justify-center' : ''}`}
-            style={{ color: 'var(--muted-foreground)' }}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/50 ${collapsed ? 'justify-center' : ''}`}
           >
             {theme === 'dark' ? <Sun className="w-4.5 h-4.5 shrink-0" /> : <Moon className="w-4.5 h-4.5 shrink-0" />}
             {!collapsed && <span>Theme</span>}
           </button>
 
           {/* Divider */}
-          <div className="h-px my-1" style={{ background: 'var(--border)' }} />
+          <div className="h-px my-1 border-t border-border" />
 
           {/* Collapse toggle */}
           <button
             onClick={() => setCollapsed(c => !c)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-muted ${collapsed ? 'justify-center' : ''}`}
-            style={{ color: 'var(--muted-foreground)' }}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/50 ${collapsed ? 'justify-center' : ''}`}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? <ChevronRight className="w-4.5 h-4.5 shrink-0" /> : <ChevronLeft className="w-4.5 h-4.5 shrink-0" />}
@@ -297,67 +288,77 @@ export default function AppLayout() {
 
       {/* ── Right Panel (Top Bar + Content) ── */}
       <div 
-        className="flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ease-in-out relative pb-16 md:pb-0"
+        className="flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ease-in-out relative pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0"
         style={{ marginLeft: isMobile ? '0px' : collapsed ? '64px' : '200px' }}
       >
 
         {/* Top Bar */}
-        <header className="h-14 shrink-0 flex items-center gap-4 px-4 md:px-6 border-b"
-          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+        <header className="h-14 shrink-0 flex items-center gap-4 px-4 md:px-6 border-b bg-card border-border">
+
+          {/* Mobile Brand Logo */}
+          <div className="md:hidden flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-xs font-black shrink-0">
+              AP
+            </div>
+            <span className="text-sm font-bold tracking-tight text-foreground">
+              Account<span className="text-primary">Pulse</span>
+            </span>
+          </div>
 
           {/* Search (Desktop) */}
           <div className="hidden md:block flex-1 max-w-sm relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--muted-foreground)' }} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search..."
-              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border focus:outline-none focus:ring-2 transition-colors"
-              style={{
-                background: 'var(--background)',
-                borderColor: 'var(--border)',
-                color: 'var(--foreground)',
-                '--tw-ring-color': 'var(--ap-accent)'
-              }}
+              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border bg-background border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
             />
           </div>
 
           {/* Search (Mobile Overlay) */}
           {isMobile && mobileSearchOpen && (
-            <div className="absolute inset-y-0 left-0 right-0 z-50 flex items-center px-4 gap-2"
-              style={{ background: 'var(--card)' }}>
-              <Search className="w-4 h-4 shrink-0" style={{ color: 'var(--muted-foreground)' }} />
+            <div className="absolute inset-y-0 left-0 right-0 z-50 flex items-center px-4 gap-2 bg-card">
+              <Search className="w-4 h-4 shrink-0 text-muted-foreground" />
               <input
                 autoFocus
                 type="text"
                 placeholder="Search..."
-                className="flex-1 bg-transparent border-none focus:outline-none text-sm"
-                style={{ color: 'var(--foreground)' }}
+                className="flex-1 bg-transparent border-none focus:outline-none text-sm text-foreground"
               />
-              <button onClick={() => setMobileSearchOpen(false)} className="p-1.5">
-                <X className="w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
+              <button onClick={() => setMobileSearchOpen(false)} className="p-1.5 text-muted-foreground">
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-1.5 ml-auto">
             {/* Search Icon (Mobile) */}
             {isMobile && !mobileSearchOpen && (
-              <button onClick={() => setMobileSearchOpen(true)} className="p-2 rounded-lg hover:bg-muted">
-                <Search className="w-4.5 h-4.5" style={{ color: 'var(--muted-foreground)' }} />
+              <button onClick={() => setMobileSearchOpen(true)} className="p-2 rounded-lg text-muted-foreground hover:bg-muted">
+                <Search className="w-4.5 h-4.5" />
+              </button>
+            )}
+
+            {/* Quick Theme Toggle (Mobile) */}
+            {isMobile && (
+              <button
+                onClick={toggle}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {theme === 'dark' ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
               </button>
             )}
 
             {/* Notifications Bell */}
             <button
               onClick={() => setNotifOpen(o => !o)}
-              className="p-2 rounded-lg transition-colors hover:bg-muted relative"
-              style={{ color: 'var(--muted-foreground)' }}
+              className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted relative"
               title="Notifications"
             >
               <Bell className="w-4.5 h-4.5" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
-                  style={{ background: 'var(--ap-accent)' }}>
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -368,8 +369,7 @@ export default function AppLayout() {
               <button
                 onClick={() => setProfileOpen(o => !o)}
                 title={`Signed in as ${user?.email}`}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold transition-opacity hover:opacity-80"
-                style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-primary text-primary-foreground text-xs font-bold transition-opacity hover:opacity-90 shadow-xs"
               >
                 {avatarLetter}
               </button>
@@ -377,15 +377,14 @@ export default function AppLayout() {
               {/* Profile Dropdown */}
               {profileOpen && (
                 <div
-                  className="absolute right-0 top-full mt-2 w-60 rounded-xl border shadow-xl z-50 overflow-hidden"
-                  style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+                  className="absolute right-0 top-full mt-2 w-64 rounded-xl border shadow-lg z-50 overflow-hidden bg-card border-border"
                 >
                   {/* Header */}
-                  <div className="px-4 py-3.5 border-b" style={{ borderColor: 'var(--border)' }}>
-                    <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                  <div className="px-4 py-3 border-b border-border">
+                    <p className="text-sm font-semibold text-foreground">
                       {user?.email?.split('@')[0]}
                     </p>
-                    <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--muted-foreground)' }}>
+                    <p className="text-xs mt-0.5 truncate text-muted-foreground">
                       {user?.email}
                     </p>
                   </div>
@@ -393,31 +392,48 @@ export default function AppLayout() {
                   {/* Nav Links */}
                   <div className="py-1">
                     <Link
+                      to="/notifications"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-muted text-foreground"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Bell className="w-4 h-4 text-muted-foreground" />
+                        <span>Notifications</span>
+                      </div>
+                      {unreadCount > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </Link>
+
+                    <Link
                       to="/settings"
                       onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-muted"
-                      style={{ color: 'var(--foreground)' }}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-muted text-foreground"
                     >
-                      <Settings className="w-4 h-4" style={{ color: 'var(--muted-foreground)' }} />
-                      Account Settings
+                      <Settings className="w-4 h-4 text-muted-foreground" />
+                      <span>Settings</span>
                     </Link>
-                    <button
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-muted text-left"
-                      style={{ color: 'var(--foreground)' }}
+
+                    <Link
+                      to="/accounts/archived"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-muted text-foreground"
                     >
-                      <span className="w-4 h-4 flex items-center justify-center text-xs" style={{ color: 'var(--muted-foreground)' }}>?</span>
-                      Help & Support
-                    </button>
+                      <Archive className="w-4 h-4 text-muted-foreground" />
+                      <span>Archived Accounts</span>
+                    </Link>
                   </div>
 
                   {/* Divider + Sign Out */}
-                  <div className="border-t py-1" style={{ borderColor: 'var(--border)' }}>
+                  <div className="border-t border-border py-1">
                     <button
                       onClick={() => { setProfileOpen(false); handleLogout() }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-red-500/10 text-left text-red-500"
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-destructive/10 text-left text-destructive"
                     >
                       <LogOut className="w-4 h-4" />
-                      Sign Out
+                      <span>Sign Out</span>
                     </button>
                   </div>
                 </div>
@@ -427,7 +443,7 @@ export default function AppLayout() {
         </header>
 
         {/* Secondary Navigation Line (Breadcrumbs) */}
-        <div className="px-4 md:px-6 py-2.5 border-b flex items-center text-sm shrink-0" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+        <div className="px-4 md:px-6 py-2.5 border-b flex items-center text-sm shrink-0 bg-background border-border">
           {(() => {
             const pathnames = location.pathname.split('/').filter(x => x)
             const breadcrumbs = [
@@ -445,11 +461,11 @@ export default function AppLayout() {
               return (
                 <div key={bc.path} className="flex items-center">
                   {isLast ? (
-                    <span className="font-semibold" style={{ color: 'var(--foreground)' }}>{bc.name}</span>
+                    <span className="font-semibold text-foreground">{bc.name}</span>
                   ) : (
                     <>
-                      <Link to={bc.path} className="hover:underline transition-colors" style={{ color: 'var(--muted-foreground)' }}>{bc.name}</Link>
-                      <ChevronRightIcon className="w-3.5 h-3.5 mx-2" style={{ color: 'var(--muted-foreground)' }} />
+                      <Link to={bc.path} className="hover:underline transition-colors text-muted-foreground">{bc.name}</Link>
+                      <ChevronRightIcon className="w-3.5 h-3.5 mx-2 text-muted-foreground" />
                     </>
                   )}
                 </div>
@@ -465,60 +481,71 @@ export default function AppLayout() {
       </div>
 
       {/* ── Mobile Bottom Navigation Bar ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t flex items-center justify-around pb-safe pt-1 px-1 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] transition-colors duration-300"
-        style={{ background: 'var(--card)', borderColor: 'var(--border)', height: 'calc(4rem + env(safe-area-inset-bottom))' }}>
-        
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-card border-border flex items-center justify-around px-2 shadow-xs transition-colors"
+        style={{
+          height: 'calc(3.5rem + env(safe-area-inset-bottom))',
+          paddingBottom: 'env(safe-area-inset-bottom)'
+        }}
+      >
         {/* Dashboard */}
-        <NavLink to="/dashboard" className="flex flex-col items-center justify-center w-16 h-12 gap-1 group">
-          {({ isActive }) => (
-            <>
-              <LayoutGrid className={`w-5 h-5 transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground group-hover:text-foreground'}`} 
-                style={{ color: isActive ? 'var(--ap-accent)' : undefined }} />
-              <span className={`text-[10px] font-semibold transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground'}`}
-                style={{ color: isActive ? 'var(--ap-accent)' : undefined }}>Dashboard</span>
-            </>
-          )}
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) =>
+            `flex-1 min-h-[44px] h-11 flex flex-col items-center justify-center gap-0.5 transition-colors touch-manipulation ${
+              isActive ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+            }`
+          }
+        >
+          <LayoutGrid className="w-5 h-5" />
+          <span className="text-[10px]">Dashboard</span>
         </NavLink>
 
         {/* Accounts */}
-        <NavLink to="/accounts" className="flex flex-col items-center justify-center w-16 h-12 gap-1 group">
-          {({ isActive }) => (
-            <>
-              <Users className={`w-5 h-5 transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground group-hover:text-foreground'}`} 
-                style={{ color: isActive ? 'var(--ap-accent)' : undefined }} />
-              <span className={`text-[10px] font-semibold transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground'}`}
-                style={{ color: isActive ? 'var(--ap-accent)' : undefined }}>Accounts</span>
-            </>
-          )}
-        </NavLink>
-
-        {/* Subscriptions */}
-        <NavLink to="/subscriptions" className="flex flex-col items-center justify-center w-16 h-12 gap-1 group">
-          {({ isActive }) => (
-            <>
-              <CreditCard className={`w-5 h-5 transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground group-hover:text-foreground'}`} 
-                style={{ color: isActive ? 'var(--ap-accent)' : undefined }} />
-              <span className={`text-[10px] font-semibold transition-colors ${isActive ? 'text-ap-accent' : 'text-muted-foreground'}`}
-                style={{ color: isActive ? 'var(--ap-accent)' : undefined }}>Subs</span>
-            </>
-          )}
-        </NavLink>
-
-        {/* Notifications (Button, not NavLink) */}
-        <button onClick={() => setNotifOpen(true)} className="flex flex-col items-center justify-center w-16 h-12 gap-1 group relative">
+        <NavLink
+          to="/accounts"
+          className={({ isActive }) =>
+            `flex-1 min-h-[44px] h-11 flex flex-col items-center justify-center gap-0.5 transition-colors relative touch-manipulation ${
+              isActive ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+            }`
+          }
+        >
           <div className="relative">
-            <Bell className={`w-5 h-5 transition-colors ${notifOpen ? 'text-ap-accent' : 'text-muted-foreground group-hover:text-foreground'}`}
-              style={{ color: notifOpen ? 'var(--ap-accent)' : undefined }} />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full text-white text-[8px] font-bold flex items-center justify-center"
-                style={{ background: 'var(--ap-accent)' }}>
-                {unreadCount > 9 ? '9+' : unreadCount}
+            <Users className="w-5 h-5" />
+            {readyCount > 0 && (
+              <span className="absolute -top-1 -right-2 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-emerald-600 px-1 text-[8px] font-bold text-white shadow-xs">
+                {readyCount > 9 ? '9+' : readyCount}
               </span>
             )}
           </div>
-          <span className={`text-[10px] font-semibold transition-colors ${notifOpen ? 'text-ap-accent' : 'text-muted-foreground'}`}
-            style={{ color: notifOpen ? 'var(--ap-accent)' : undefined }}>Notifs</span>
-        </button>
+          <span className="text-[10px]">Accounts</span>
+        </NavLink>
+
+        {/* Subscriptions */}
+        <NavLink
+          to="/subscriptions"
+          className={({ isActive }) =>
+            `flex-1 min-h-[44px] h-11 flex flex-col items-center justify-center gap-0.5 transition-colors touch-manipulation ${
+              isActive ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+            }`
+          }
+        >
+          <CreditCard className="w-5 h-5" />
+          <span className="text-[10px]">Subs</span>
+        </NavLink>
+
+        {/* Reports */}
+        <NavLink
+          to="/reports"
+          className={({ isActive }) =>
+            `flex-1 min-h-[44px] h-11 flex flex-col items-center justify-center gap-0.5 transition-colors touch-manipulation ${
+              isActive ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+            }`
+          }
+        >
+          <BarChart2 className="w-5 h-5" />
+          <span className="text-[10px]">Reports</span>
+        </NavLink>
       </nav>
 
       {/* ── Slide-in Notifications Panel ── */}
@@ -599,8 +626,10 @@ export default function AppLayout() {
             <p className="text-sm mb-6" style={{ color: 'var(--muted-foreground)' }}>
               Your session is about to expire in 5 minutes due to inactivity. Click anywhere or press a key to stay logged in.
             </p>
-            <button onClick={resetTimers} className="w-full px-4 py-2.5 rounded-xl text-white font-semibold text-sm transition-colors hover:opacity-90 shadow-md"
-              style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}>
+            <button
+              onClick={resetTimers}
+              className="w-full px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm transition-colors hover:bg-primary/90 shadow-xs"
+            >
               Stay Logged In
             </button>
           </div>
