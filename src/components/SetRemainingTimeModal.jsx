@@ -166,20 +166,19 @@ export default function SetRemainingTimeModal({ isOpen, onClose, timer, onSave }
           </div>
 
           {/* Footer Buttons */}
-          <div className="flex items-center justify-end gap-2.5 pt-2">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border mt-3">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 rounded-xl text-xs font-semibold border hover:bg-muted transition-colors text-muted-foreground"
-              style={{ borderColor: 'var(--border)' }}
+              className="px-4 py-2 rounded-lg text-xs font-medium border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              className="px-5 py-2 rounded-lg text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-xs transition-colors disabled:opacity-50"
             >
               {loading ? 'Saving...' : 'Set Timer'}
             </button>
