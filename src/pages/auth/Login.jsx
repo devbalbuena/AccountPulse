@@ -5,13 +5,12 @@ import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator'
 
 // Input styling: dark-on-dark vs white background in light mode
 const inputCls = [
-  "w-full px-4 py-3 rounded-lg text-sm transition-all duration-200 outline-none",
-  "bg-[#f5f5ff] border border-[#e2e4f0] text-slate-900 placeholder:text-slate-400",
-  "dark:bg-[#1a1d27] dark:border-[#2e3248] dark:text-white dark:placeholder:text-slate-500",
-  "focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+  "w-full px-3.5 py-2.5 rounded-lg text-sm transition-colors outline-none",
+  "bg-background border border-border text-foreground placeholder:text-muted-foreground",
+  "focus:border-primary focus:ring-1 focus:ring-primary"
 ].join(' ')
 
-const labelCls = "block text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2"
+const labelCls = "block text-xs font-medium text-foreground mb-1.5"
 
 export default function Login() {
   const navigate = useNavigate()
@@ -225,15 +224,12 @@ export default function Login() {
                 </div>
                 <button
                   type="submit" disabled={loading}
-                  className="w-full py-3 rounded-lg font-bold text-sm text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
-                  style={{ background: 'linear-gradient(90deg, #06b6d4, #0891b2)', boxShadow: '0 4px 20px -4px rgba(6,182,212,0.4)' }}
-                  onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px -4px rgba(6,182,212,0.6)' }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 20px -4px rgba(6,182,212,0.4)' }}
+                  className="w-full py-2.5 rounded-lg font-semibold text-sm bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
                 >
                   {loading ? 'Sending…' : 'Reset Password'}
                 </button>
                 <div className="text-center mt-4">
-                  <button type="button" onClick={() => setIsResetting(false)} className="text-xs font-semibold uppercase tracking-widest text-cyan-500 hover:text-cyan-400 cursor-pointer transition-colors">
+                  <button type="button" onClick={() => setIsResetting(false)} className="text-xs font-semibold text-primary hover:underline cursor-pointer transition-colors">
                     Back to Login
                   </button>
                 </div>
@@ -243,7 +239,7 @@ export default function Login() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={labelCls} style={{ marginBottom: 0 }}>Password</label>
-                    <span onClick={() => setIsResetting(true)} className="text-[10px] font-semibold uppercase tracking-widest text-cyan-500 hover:text-cyan-400 cursor-pointer transition-colors">
+                    <span onClick={() => setIsResetting(true)} className="text-xs font-medium text-primary hover:underline cursor-pointer transition-colors">
                       Forgot?
                     </span>
                   </div>
@@ -257,10 +253,7 @@ export default function Login() {
 
                 <button
                   type="submit" disabled={loading}
-                  className="w-full py-3 rounded-lg font-bold text-sm text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
-                  style={{ background: 'linear-gradient(90deg, #06b6d4, #0891b2)', boxShadow: '0 4px 20px -4px rgba(6,182,212,0.4)' }}
-                  onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 24px -4px rgba(6,182,212,0.6)' }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 20px -4px rgba(6,182,212,0.4)' }}
+                  className="w-full py-2.5 rounded-lg font-semibold text-sm bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
                 >
                   {loading ? 'Signing in…' : 'Sign In'}
                 </button>
@@ -268,11 +261,11 @@ export default function Login() {
             )}
           </form>
 
-          <p className="text-center mt-7 text-sm text-slate-400">
+          <p className="text-center mt-7 text-sm text-muted-foreground">
             New to AccountPulse?{' '}
             <Link to="/register"
-              className="font-semibold text-cyan-500 hover:text-cyan-400 transition-colors">
-              Create one
+              className="font-semibold text-primary hover:underline transition-colors">
+              Create an account
             </Link>
           </p>
         </div>
