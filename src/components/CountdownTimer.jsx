@@ -1,14 +1,18 @@
 import { useNow } from '@/context/TimeContext'
+import { Check, Clock } from 'lucide-react'
 
 export default function CountdownTimer({ nextDueAt, large = false }) {
   const now = useNow()
 
   if (!nextDueAt) {
     return (
-      <span className={large 
-        ? "text-xl font-bold tracking-tight" 
-        : "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium font-mono border bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-      } style={large ? { color: 'var(--muted-foreground)' } : {}}>
+      <span
+        className={
+          large
+            ? 'text-xl font-bold tracking-tight text-muted-foreground'
+            : 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium font-mono border border-border bg-muted text-muted-foreground'
+        }
+      >
         No timer
       </span>
     )
@@ -39,36 +43,40 @@ export default function CountdownTimer({ nextDueAt, large = false }) {
     }
   }
 
-  const statusClasses = {
-    ready: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
-    warning: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900',
-    cooldown: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
-  }
-
-  const dotClasses = {
-    ready: '',
-    warning: 'bg-amber-500',
-    cooldown: 'bg-slate-400',
-  }
-
-  const largeClasses = {
-    ready: { color: '#10b981' },
-    warning: { color: '#f59e0b' },
-    cooldown: { color: 'var(--foreground)' }
+  if (large) {
+    return (
+      <span
+        className="inline-flex items-center gap-2 text-2xl font-bold tracking-tight tabular-nums"
+        style={{ color: status === 'ready' ? 'var(--ready-text)' : 'var(--cooldown-text)' }}
+      >
+        {timeLeft}
+      </span>
+    )
   }
 
   return (
-    <span 
-      className={large 
-        ? `inline-flex items-center gap-2 text-[26px] font-bold tracking-tight tabular-nums` 
-        : `inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${statusClasses[status]}`
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border tabular-nums"
+      style={
+        status === 'ready'
+          ? {
+              background: 'var(--ready-bg)',
+              color: 'var(--ready-text)',
+              borderColor: 'var(--ready-border)',
+            }
+          : {
+              background: 'var(--cooldown-bg)',
+              color: 'var(--cooldown-text)',
+              borderColor: 'var(--cooldown-border)',
+            }
       }
-      style={large ? largeClasses[status] : {}}
     >
-      {status !== 'ready' && (
-        <span className={`rounded-full animate-pulse ${dotClasses[status]} ${large ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'}`} />
+      {status === 'ready' ? (
+        <Check className="w-3 h-3 stroke-[2.5]" />
+      ) : (
+        <Clock className="w-3 h-3" />
       )}
-      {timeLeft}
+      <span>{timeLeft}</span>
     </span>
   )
 }
