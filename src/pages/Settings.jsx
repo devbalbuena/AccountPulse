@@ -26,21 +26,18 @@ function ProfileTab({ user }) {
   return (
     <div className="space-y-6 max-w-lg">
       {/* Avatar */}
-      <div className="flex items-center gap-5">
-        <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg"
-          style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}
-        >
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-primary text-primary-foreground text-xl font-bold shadow-xs">
           {initial}
         </div>
         <div>
-          <p className="text-base font-bold" style={{ color: 'var(--foreground)' }}>{username}</p>
-          <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{user?.email}</p>
+          <p className="text-base font-bold text-foreground">{username}</p>
+          <p className="text-sm text-muted-foreground">{user?.email}</p>
         </div>
       </div>
 
       {/* Read-only fields */}
-      <div className="space-y-4 p-5 rounded-2xl border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+      <div className="space-y-4 p-5 rounded-xl border border-border bg-card shadow-xs">
         <div>
           <label className={labelCls} style={{ color: 'var(--muted-foreground)' }}>Username</label>
           <input
@@ -61,7 +58,7 @@ function ProfileTab({ user }) {
             style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
           />
         </div>
-        <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+        <p className="text-xs text-muted-foreground">
           Your email address is managed by your authentication provider and cannot be changed here.
         </p>
       </div>
@@ -71,66 +68,70 @@ function ProfileTab({ user }) {
 
 // ─── Appearance Tab ─────────────────────────────────────────────────────────────
 function AppearanceTab() {
-  const { theme, toggle } = useTheme()
+  const { mode, setMode, resolvedTheme } = useTheme()
+
+  const options = [
+    {
+      id: 'system',
+      label: 'System',
+      desc: 'Matches your OS setting',
+      icon: Laptop,
+      active: mode === 'system',
+    },
+    {
+      id: 'light',
+      label: 'Light',
+      desc: 'Soft, calm light theme',
+      icon: Sun,
+      active: mode === 'light',
+    },
+    {
+      id: 'dark',
+      label: 'Dark',
+      desc: 'Soft charcoal dark theme',
+      icon: Moon,
+      active: mode === 'dark',
+    },
+  ]
 
   return (
     <div className="space-y-4 max-w-lg">
       <div
-        className="p-5 rounded-2xl border flex items-center justify-between gap-4"
+        className="p-5 rounded-2xl border"
         style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
       >
-        <div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Color Theme</p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
-            Currently using <span className="font-medium capitalize">{theme}</span> mode
-          </p>
-        </div>
-        <button
-          onClick={toggle}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors hover:bg-muted shrink-0"
-          style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
-        >
-          {theme === 'dark'
-            ? <><Sun className="w-4 h-4 text-amber-400" /> Light Mode</>
-            : <><Moon className="w-4 h-4 text-blue-400" /> Dark Mode</>
-          }
-        </button>
-      </div>
+        <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Theme Preference</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
+          Active theme: <strong className="font-semibold capitalize text-foreground">{resolvedTheme}</strong>
+          {mode === 'system' && ' (Automatic from system)'}
+        </p>
 
-      {/* Theme Previews */}
-      <div className="grid grid-cols-2 gap-4">
-        {[
-          { label: 'Light', bg: '#ffffff', fg: '#0f172a', accent: '#2563eb', active: theme === 'light' },
-          { label: 'Dark',  bg: '#111827', fg: '#f1f5f9', accent: '#2563eb', active: theme === 'dark'  },
-        ].map(t => (
-          <button
-            key={t.label}
-            onClick={toggle}
-            className="relative rounded-2xl border-2 p-4 text-left transition-all hover:scale-[1.02]"
-            style={{
-              background: t.bg,
-              borderColor: t.active ? 'var(--ap-accent)' : 'var(--border)',
-              boxShadow: t.active ? '0 0 0 3px color-mix(in srgb, var(--ap-accent) 20%, transparent)' : undefined
-            }}
-          >
-            {t.active && (
-              <span className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                style={{ background: 'var(--ap-accent)' }}>
-                <Check className="w-3 h-3 text-white" />
-              </span>
-            )}
-            {/* Mini preview */}
-            <div className="space-y-1.5 mb-3">
-              <div className="h-2 w-12 rounded-full opacity-60" style={{ background: t.fg }} />
-              <div className="h-1.5 w-8 rounded-full opacity-30" style={{ background: t.fg }} />
-            </div>
-            <div className="flex gap-1.5">
-              <div className="h-5 w-5 rounded" style={{ background: t.accent, opacity: 0.8 }} />
-              <div className="h-5 flex-1 rounded opacity-20" style={{ background: t.fg }} />
-            </div>
-            <p className="mt-3 text-xs font-semibold" style={{ color: t.fg, opacity: 0.7 }}>{t.label} Mode</p>
-          </button>
-        ))}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+          {options.map(opt => {
+            const Icon = opt.icon
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setMode(opt.id)}
+                className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between min-h-[92px] relative ${
+                  opt.active
+                    ? 'border-primary ring-1 ring-primary bg-primary/5'
+                    : 'border-border hover:bg-muted/40'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <Icon className="w-4 h-4 text-primary" />
+                  {opt.active && <Check className="w-3.5 h-3.5 text-primary stroke-[2.5]" />}
+                </div>
+                <div className="mt-2">
+                  <p className="text-xs font-bold text-foreground">{opt.label}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{opt.desc}</p>
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -316,25 +317,25 @@ function SecurityTab() {
         </form>
       </div>
 
-      <div className="mt-6 p-5 rounded-2xl border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-        <h3 className="text-sm font-bold mb-4" style={{ color: 'var(--foreground)' }}>Current Session</h3>
-        <div className="flex items-center gap-4 p-4 rounded-xl mb-4" style={{ background: 'var(--background)', borderColor: 'var(--border)', borderWidth: '1px' }}>
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--ap-accent) 15%, transparent)', color: 'var(--ap-accent)' }}>
+      <div className="mt-6 p-5 rounded-xl border border-border bg-card shadow-xs">
+        <h3 className="text-sm font-semibold mb-4 text-foreground">Current Session</h3>
+        <div className="flex items-center gap-3.5 p-3.5 rounded-lg mb-4 bg-muted/40 border border-border">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
             <Laptop className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold truncate" style={{ color: 'var(--foreground)' }}>{lastBrowser}</p>
-            <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--muted-foreground)' }}>
+            <p className="text-sm font-semibold truncate text-foreground">{lastBrowser}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {lastLogin ? `Started ${new Date(lastLogin).toLocaleString()}` : 'Active now'}
             </p>
           </div>
-          <div className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase" style={{ background: 'color-mix(in srgb, #10b981 15%, transparent)', color: '#10b981' }}>
+          <div className="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             Active
           </div>
         </div>
         <button
           onClick={handleSignOutAll}
-          className="flex items-center justify-center w-full gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border hover:bg-red-500/10 text-red-500 border-red-500/20"
+          className="flex items-center justify-center w-full gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-destructive/30 hover:bg-destructive/10 text-destructive bg-card shadow-xs"
         >
           <LogOut className="w-4 h-4" />
           Sign Out All Sessions
@@ -383,7 +384,7 @@ export default function Settings() {
       </div>
 
       {/* ── Tab Navigation ── */}
-      <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: 'var(--border)' }}>
+      <div className="flex items-center gap-1 border-b border-border mb-6">
         {TABS.map(tab => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -391,11 +392,11 @@ export default function Settings() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative -mb-px"
-              style={{
-                color: isActive ? 'var(--ap-accent)' : 'var(--muted-foreground)',
-                borderBottom: isActive ? '2px solid var(--ap-accent)' : '2px solid transparent'
-              }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative -mb-px border-b-2 ${
+                isActive
+                  ? 'border-primary text-primary font-semibold'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
             >
               <Icon className="w-4 h-4" />
               {tab.label}
