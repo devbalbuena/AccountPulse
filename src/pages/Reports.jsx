@@ -62,7 +62,9 @@ function MonthlySpendBarChart({ data, currency, avgMonthly }) {
                 {isHovered && (
                   <div className="absolute -top-10 z-20 px-2.5 py-1 rounded-md border border-border bg-popover text-popover-foreground text-[11px] font-semibold shadow-md whitespace-nowrap tabular-nums pointer-events-none animate-in fade-in zoom-in-95 duration-100">
                     <span>{item.label}: </span>
-                    <span className="text-primary">{currency} {item.total.toLocaleString()}</span>
+                    <span className="text-primary font-bold">
+                      {currency} {item.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
                 )}
 
@@ -296,9 +298,20 @@ export default function Reports() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-foreground shadow-xs">
-            6-Month Run Rate
-          </span>
+          <Link
+            to="/subscriptions"
+            className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted shadow-xs transition-colors flex items-center gap-1.5"
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>Subscriptions</span>
+          </Link>
+          <Link
+            to="/accounts"
+            className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted shadow-xs transition-colors flex items-center gap-1.5"
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Accounts</span>
+          </Link>
         </div>
       </div>
 
