@@ -63,13 +63,14 @@ export default function Notifications() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Notifications</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Notifications</h1>
+          <p className="text-sm mt-0.5 text-muted-foreground">
             {notifications.length} total
-            {unreadCount > 0 && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold"
-              style={{ background: 'color-mix(in srgb, var(--ap-accent) 15%, transparent)', color: 'var(--ap-accent)' }}>
-              {unreadCount} unread
-            </span>}
+            {unreadCount > 0 && (
+              <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                {unreadCount} unread
+              </span>
+            )}
           </p>
         </div>
 
@@ -77,15 +78,13 @@ export default function Notifications() {
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
               <button onClick={markAllRead}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-muted"
-                style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted shadow-xs transition-colors">
                 <CheckCheck className="w-3.5 h-3.5" />
                 Mark all read
               </button>
             )}
             <button onClick={clearAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-muted"
-              style={{ borderColor: 'var(--border)', color: '#ef4444', borderColor: 'color-mix(in srgb, #ef4444 30%, var(--border))' }}>
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-destructive/30 bg-card text-destructive hover:bg-destructive/10 shadow-xs transition-colors">
               <Trash2 className="w-3.5 h-3.5" />
               Clear all
             </button>
@@ -94,48 +93,45 @@ export default function Notifications() {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="rounded-2xl border flex flex-col items-center justify-center py-20 px-4 text-center"
-          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-            style={{ background: 'color-mix(in srgb, var(--ap-accent) 10%, transparent)' }}>
-            <Bell className="w-6 h-6" style={{ color: 'var(--ap-accent)' }} />
+        <div className="rounded-xl border border-border bg-card flex flex-col items-center justify-center py-16 px-4 text-center shadow-xs">
+          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3 text-muted-foreground">
+            <Bell className="w-6 h-6" />
           </div>
-          <p className="font-medium" style={{ color: 'var(--foreground)' }}>No notifications yet</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--muted-foreground)' }}>Activity will appear here as you use the app</p>
+          <p className="font-semibold text-sm text-foreground">No notifications yet</p>
+          <p className="text-xs mt-1 text-muted-foreground">Activity will appear here as you use the app</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {notifications.map(n => (
             <div
               key={n.id}
               onClick={() => !n.is_read && markRead(n.id)}
-              className="flex items-start justify-between gap-4 px-5 py-4 rounded-2xl border transition-all group"
-              style={{
-                background: n.is_read ? 'var(--card)' : 'color-mix(in srgb, var(--ap-accent) 6%, var(--card))',
-                borderColor: n.is_read ? 'var(--border)' : 'color-mix(in srgb, var(--ap-accent) 30%, var(--border))',
-                cursor: n.is_read ? 'default' : 'pointer'
-              }}
+              className={`flex items-start justify-between gap-4 px-4 py-3.5 rounded-xl border transition-colors shadow-xs ${
+                n.is_read
+                  ? 'bg-card border-border'
+                  : 'bg-primary/[0.03] border-primary/30 cursor-pointer hover:bg-primary/[0.06]'
+              }`}
             >
               <div className="flex gap-3 items-start">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                  style={{ background: n.is_read ? 'var(--muted)' : 'color-mix(in srgb, var(--ap-accent) 15%, transparent)' }}>
-                  <Bell className="w-3.5 h-3.5" style={{ color: n.is_read ? 'var(--muted-foreground)' : 'var(--ap-accent)' }} />
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                  n.is_read ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'
+                }`}>
+                  <Bell className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-sm" style={{
-                    color: n.is_read ? 'var(--muted-foreground)' : 'var(--foreground)',
-                    fontWeight: n.is_read ? 400 : 500
-                  }}>
+                  <p className={`text-sm leading-relaxed ${
+                    n.is_read ? 'text-muted-foreground' : 'text-foreground font-medium'
+                  }`}>
                     {n.message}
                   </p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                  <p className="text-xs text-muted-foreground mt-1">
                     {timeAgo(n.created_at)} · {new Date(n.created_at).toLocaleString()}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0 mt-1">
                 {!n.is_read && (
-                  <span className="w-2 h-2 rounded-full" style={{ background: 'var(--ap-accent)' }} />
+                  <span className="w-2 h-2 rounded-full bg-primary" />
                 )}
               </div>
             </div>
