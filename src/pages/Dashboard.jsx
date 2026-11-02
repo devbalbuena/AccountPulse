@@ -28,23 +28,7 @@ function timeAgo(ts) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-/* ─── Decorative sparkline SVG ─── */
-function Sparkline({ color = 'var(--ap-accent)' }) {
-  const path = "M0,28 C10,25 20,18 30,20 C40,22 50,10 60,8 C70,6 80,14 90,12 C100,10 110,16 120,12 L120,40 L0,40 Z"
-  return (
-    <svg viewBox="0 0 120 40" className="w-full h-10 mt-2" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={`sg-${color.replace(/[^a-z0-9]/gi, '')}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.0" />
-        </linearGradient>
-      </defs>
-      <path d={path} fill={`url(#sg-${color.replace(/[^a-z0-9]/gi, '')})`} />
-      <path d="M0,28 C10,25 20,18 30,20 C40,22 50,10 60,8 C70,6 80,14 90,12 C100,10 110,16 120,12"
-        fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
+
 
 /* ─── Token Health Bar ─── */
 function TokenHealthBar({ accounts }) {
@@ -53,10 +37,10 @@ function TokenHealthBar({ accounts }) {
   
   if (total === 0) {
     return (
-      <div className="mt-2">
-        <div className="w-full h-1.5 rounded-full bg-muted/60" />
-        <div className="flex gap-2.5 text-[11px] mt-1.5 font-medium">
-          <span className="text-muted-foreground">No active timers</span>
+      <div className="mt-3">
+        <div className="w-full h-1.5 rounded-full bg-muted" />
+        <div className="flex gap-2 text-xs mt-2 text-muted-foreground">
+          <span>No active timers</span>
         </div>
       </div>
     )
@@ -78,57 +62,51 @@ function TokenHealthBar({ accounts }) {
   const cPct = total > 0 ? (cooldown / total) * 100 : 0
 
   return (
-    <div className="mt-2">
-      <div className="w-full h-1.5 rounded-full overflow-hidden flex bg-muted/50">
-        {rPct > 0 && <div className="h-full bg-emerald-500 transition-all" style={{ width: `${rPct}%` }} />}
-        {cPct > 0 && <div className="h-full bg-amber-500 transition-all" style={{ width: `${cPct}%` }} />}
+    <div className="mt-3">
+      <div className="w-full h-1.5 rounded-full overflow-hidden flex bg-muted">
+        {rPct > 0 && <div className="h-full bg-emerald-600 transition-all duration-300" style={{ width: `${rPct}%` }} />}
+        {cPct > 0 && <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${cPct}%` }} />}
       </div>
-      <div className="flex gap-2.5 text-[11px] mt-1.5 font-medium">
-        <span className="text-emerald-500">✓ {ready} ready</span>
-        <span className="text-amber-500">⏳ {cooldown} on cooldown</span>
+      <div className="flex items-center gap-3 text-xs mt-2 font-medium">
+        <span className="text-emerald-700 dark:text-emerald-400">✓ {ready} ready</span>
+        <span className="text-amber-700 dark:text-amber-400">⏳ {cooldown} on cooldown</span>
       </div>
     </div>
   )
 }
 
-/* ─── Stat Card ─── */
-function StatCard({ title, value, subtitle, icon, accent, sparkColor, rawAccounts }) {
+/* ─── Clean KPI Stat Card ─── */
+function StatCard({ title, value, subtitle, icon, rawAccounts }) {
   return (
-    <div className="rounded-2xl border p-5 flex flex-col relative overflow-hidden transition-shadow hover:shadow-md"
-      style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-      {/* top accent bar */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl" style={{ background: accent }} />
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--muted-foreground)' }}>{title}</p>
-          <p className="text-3xl font-bold mt-1 tabular-nums" style={{ color: 'var(--foreground)' }}>{value}</p>
-          {subtitle && <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>{subtitle}</p>}
+    <div className="rounded-xl border border-border bg-card p-5 flex flex-col justify-between transition-all hover:border-border/80 shadow-xs">
+      <div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</span>
+          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+            {icon}
+          </div>
         </div>
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: `color-mix(in srgb, ${accent} 15%, transparent)` }}>
-          <span style={{ color: accent }}>{icon}</span>
-        </div>
+        <p className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-2 tabular-nums">{value}</p>
+        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
-      {title === 'Total Accounts' ? (
+      {title === 'Total Accounts' && (
         <TokenHealthBar accounts={rawAccounts || []} />
-      ) : (
-        <Sparkline color={sparkColor || accent} />
       )}
     </div>
   )
 }
 
-/* ─── SVG Donut Chart ─── */
-const CHART_COLORS = ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+/* ─── Clean SVG Donut Chart ─── */
+const CHART_COLORS = ['#2563eb', '#0284c7', '#059669', '#d97706', '#dc2626', '#7c3aed']
 
 function DonutChart({ data }) {
   if (!data || data.length === 0) return (
-    <div className="flex items-center justify-center h-32" style={{ color: 'var(--muted-foreground)' }}>
-      <p className="text-sm">No data</p>
+    <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+      <p>No account data</p>
     </div>
   )
   const total = data.reduce((s, d) => s + d.count, 0)
-  const size = 110, cx = 55, cy = 55, r = 42, strokeW = 14
+  const size = 110, cx = 55, cy = 55, r = 42, strokeW = 12
   let offset = 0
   const circ = 2 * Math.PI * r
   const slices = data.map((d, i) => {
@@ -139,7 +117,7 @@ function DonutChart({ data }) {
     return slice
   })
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-5">
       <svg width={size} height={size} className="shrink-0">
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={strokeW} />
         {slices.map((s, i) => (
@@ -149,15 +127,16 @@ function DonutChart({ data }) {
             strokeDashoffset={-(s.offset - circ / 4)}
             strokeLinecap="butt" />
         ))}
-        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="16" fontWeight="700"
-          fill="var(--foreground)">{total}</text>
+        <text x={cx} y={cy + 5} textAnchor="middle" className="text-sm font-bold fill-foreground">
+          {total}
+        </text>
       </svg>
-      <div className="flex flex-col gap-1.5 min-w-0">
+      <div className="flex flex-col gap-2 min-w-0 flex-1">
         {slices.map((s, i) => (
           <div key={i} className="flex items-center gap-2 text-xs min-w-0">
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
-            <span className="truncate" style={{ color: 'var(--foreground)' }}>{s.platform}</span>
-            <span className="ml-auto font-semibold tabular-nums pl-2 shrink-0" style={{ color: 'var(--muted-foreground)' }}>{s.count}</span>
+            <span className="truncate text-foreground font-medium">{s.platform}</span>
+            <span className="ml-auto text-muted-foreground font-semibold tabular-nums pl-2 shrink-0">{s.count}</span>
           </div>
         ))}
       </div>
@@ -165,14 +144,12 @@ function DonutChart({ data }) {
   )
 }
 
-/* ─── Card wrapper ─── */
+/* ─── Panel Container ─── */
 function Panel({ title, action, children, className = '' }) {
   return (
-    <div className={`rounded-2xl border flex flex-col overflow-hidden ${className}`}
-      style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-      <div className="flex items-center justify-between px-5 py-3.5 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}>
-        <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-foreground)' }}>{title}</h3>
+    <div className={`rounded-xl border border-border bg-card flex flex-col overflow-hidden shadow-xs ${className}`}>
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0 bg-card">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</h3>
         {action}
       </div>
       {children}
@@ -303,53 +280,44 @@ export default function Dashboard() {
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button onClick={() => setIsAccountModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 hover:shadow-md"
-            style={{ background: 'linear-gradient(135deg, var(--ap-accent), #c084fc)' }}>
-            <Plus className="w-3.5 h-3.5" /> Account
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold transition-colors hover:bg-primary/90 shadow-xs">
+            <Plus className="w-4 h-4" /> Add Account
           </button>
           <button onClick={() => setIsSubModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 hover:shadow-md"
-            style={{ background: 'linear-gradient(135deg, var(--ap-accent3), #34d399)' }}>
-            <Plus className="w-3.5 h-3.5" /> Subscription
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-card text-foreground text-sm font-semibold transition-colors hover:bg-muted shadow-xs">
+            <Plus className="w-4 h-4" /> Add Subscription
           </button>
         </div>
       </div>
 
-      <div className={`transition-all duration-700 space-y-6 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      <div className={`transition-all duration-500 space-y-6 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
       
       {/* ── Alert Banner ── */}
       {showAlert && (
         <div 
-          className="flex items-center justify-between p-3 sm:p-4 rounded-[10px] animate-in slide-in-from-top-4 fade-in duration-300"
-          style={{
-            background: bannerBg,
-            border: `1px solid ${bannerBorder}`,
-            borderLeft: `3px solid ${bannerColor}`
-          }}
+          className="flex items-center justify-between p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200 animate-in slide-in-from-top-2 duration-200"
         >
           <div className="flex items-center gap-3">
-            <div className="shrink-0 flex items-center justify-center w-6 h-6 rounded-full" style={{ background: bannerColor }}>
-              <span className="text-white font-bold text-xs">!</span>
+            <div className="shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold text-xs">
+              ✓
             </div>
             <div>
-              <p className="font-bold text-sm" style={{ color: bannerColor }}>{bannerTitle}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>{bannerList}</p>
+              <p className="font-semibold text-sm text-emerald-900 dark:text-emerald-200">{bannerTitle}</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">{bannerList}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-4">
+          <div className="flex items-center gap-3 shrink-0 ml-4">
             <Link 
               to="/accounts"
-              className="px-3 sm:px-4 py-1.5 rounded-md text-xs font-bold border transition-colors hover:bg-white/10"
-              style={{ color: bannerColor, borderColor: bannerColor }}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
             >
               View Accounts
             </Link>
             <button 
               onClick={dismissBanner}
-              className="p-1 rounded-md transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-              style={{ color: 'var(--muted-foreground)' }}
+              className="p-1 rounded-md text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
             >
               <span className="sr-only">Dismiss</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -361,19 +329,17 @@ export default function Dashboard() {
       {/* ── Row 1: Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="Total Accounts" value={totalAccounts} rawAccounts={accounts}
-          icon={<Layers className="w-4.5 h-4.5" />}
-          accent="var(--ap-accent)" sparkColor="var(--ap-accent)" />
+          icon={<Layers className="w-4 h-4" />} />
         <StatCard title="Ready Now" value={bannerCount}
-          icon={<CheckCircle2 className="w-4.5 h-4.5" />}
-          accent="#10b981" sparkColor="#10b981" />
+          subtitle={`${readyAccs.length} available to use`}
+          icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} />
         <StatCard title="Bills This Month" value={dueThisMonth}
-          icon={<Receipt className="w-4.5 h-4.5" />}
-          accent="var(--ap-accent2)" sparkColor="var(--ap-accent2)" />
+          subtitle="Upcoming renewals"
+          icon={<Receipt className="w-4 h-4" />} />
         <StatCard
           title="Next Bill" value={nextBill ? nextBill.service_name : '—'}
           subtitle={nextBill ? formatDate(nextBill.next_billing_date) : 'No upcoming bills'}
-          icon={<Calendar className="w-4.5 h-4.5" />}
-          accent="var(--ap-accent3)" sparkColor="var(--ap-accent3)" />
+          icon={<Calendar className="w-4 h-4" />} />
       </div>
 
       {/* ── Row 2: 3-column grid ── */}
@@ -471,7 +437,7 @@ export default function Dashboard() {
                           </p>
                         </div>
 
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
                           <Check className="w-3 h-3 stroke-[2.5]" />
                           <span>Ready</span>
                         </span>
@@ -482,11 +448,11 @@ export default function Dashboard() {
               )}
 
               {/* Next Account to Return Section */}
-              <div className="mt-auto p-4 border-t border-border/70 bg-muted/20">
+              <div className="mt-auto p-4 border-t border-border bg-muted/30">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Next To Return</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Next To Return</span>
                   {nextToReturn && (
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 inline-flex items-center gap-1">
+                    <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       <span>in {formatDuration(nextToReturn.status.soonestAvailableMs)}</span>
                     </span>
@@ -494,7 +460,7 @@ export default function Dashboard() {
                 </div>
 
                 {nextToReturn ? (
-                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border bg-card" style={{ borderColor: 'var(--border)' }}>
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-card">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-xs font-semibold truncate text-foreground">{nextToReturn.account.email}</p>
@@ -512,14 +478,13 @@ export default function Dashboard() {
                           <Copy className="w-3 h-3" />
                         </button>
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
                         {nextToReturn.account.platform} · {nextGroup ? nextGroup.groupName : 'Cooldown ending'}
                       </p>
                     </div>
                     <Link 
                       to="/accounts" 
-                      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border hover:bg-muted transition-colors shrink-0 text-muted-foreground hover:text-foreground"
-                      style={{ borderColor: 'var(--border)' }}
+                      className="text-xs font-medium px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-muted transition-colors shrink-0 text-foreground"
                     >
                       View
                     </Link>
@@ -547,32 +512,31 @@ export default function Dashboard() {
           </Panel>
 
           <Panel title="Upcoming Bills" action={
-            <Link to="/subscriptions" className="text-xs font-medium hover:underline" style={{ color: 'var(--ap-accent3)' }}>View all →</Link>
+            <Link to="/subscriptions" className="text-xs font-semibold text-primary hover:underline">View all →</Link>
           } className="flex-1">
             {subscriptions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
-                <Receipt className="w-8 h-8 mb-3 opacity-20" style={{ color: 'var(--foreground)' }} />
-                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>No subscriptions yet</p>
+                <Receipt className="w-8 h-8 mb-3 opacity-20 text-foreground" />
+                <p className="text-sm text-muted-foreground">No subscriptions yet</p>
               </div>
             ) : (
-              <ul>
+              <ul className="divide-y divide-border">
                 {subscriptions.map(sub => {
                   const days = daysUntil(sub.next_billing_date)
                   const urgent = days !== null && days <= 3
                   return (
-                    <li key={sub.id} className="flex items-center justify-between px-5 py-3 border-b last:border-0"
-                      style={{ borderColor: 'var(--border)' }}>
+                    <li key={sub.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
                       <div className="flex items-center gap-2 min-w-0">
-                        {urgent && <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ background: '#ef4444' }} />}
+                        {urgent && <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-red-500 animate-pulse" />}
                         <div className="min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: 'var(--foreground)' }}>{sub.service_name}</p>
-                          <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>{formatDate(sub.next_billing_date)}</p>
+                          <p className="text-sm font-medium truncate text-foreground">{sub.service_name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(sub.next_billing_date)}</p>
                         </div>
                       </div>
                       <div className="text-right ml-2 shrink-0">
-                        <p className="text-sm font-semibold" style={{ color: 'var(--ap-accent3)' }}>{sub.currency} {parseFloat(sub.amount).toFixed(2)}</p>
-                        <p className="text-[11px]" style={{ color: urgent ? '#ef4444' : 'var(--muted-foreground)' }}>
-                          {days === null ? '' : days < 0 ? 'Overdue' : days === 0 ? 'Due today' : `${days}d`}
+                        <p className="text-sm font-semibold text-foreground tabular-nums">{sub.currency} {parseFloat(sub.amount).toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {days === null ? '' : days < 0 ? 'Overdue' : days === 0 ? 'Due today' : `${days}d left`}
                         </p>
                       </div>
                     </li>
