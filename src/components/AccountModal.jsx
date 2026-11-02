@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ImageIcon, Plus, Trash2, Clock, AlertTriangle, Sparkles, Bell } from 'lucide-react'
 import { TIMER_PRESETS, ANTIGRAVITY_4_PRESETS, createTimerFromPreset } from '@/lib/timerPresets'
+import { AI_PLATFORM_CATALOG, resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
 
 const inputCls = "w-full px-3.5 py-2.5 rounded-lg text-sm bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
 const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5"
@@ -175,16 +176,20 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
     setLoading(true)
 
     let accId = account?.id
+    const unified = resolveUnifiedPlatform(form.platform, form.type)
+    const cleanEmail = form.email.trim()
+    const cleanPlatform = unified.name
+    const cleanType = (form.type || '').trim() || unified.category
 
     // ── 1. Upsert the account row ──
     if (account) {
       const { error: accErr } = await supabase.from('accounts')
-        .update({ email: form.email, platform: form.platform, type: form.type, notes: form.notes || null })
+        .update({ email: cleanEmail, platform: cleanPlatform, type: cleanType, notes: form.notes || null })
         .eq('id', accId)
       if (accErr) { setError(accErr.message); setLoading(false); return }
     } else {
       const { data: newAcc, error: accErr } = await supabase.from('accounts')
-        .insert({ user_id: user.id, email: form.email, platform: form.platform, type: form.type, notes: form.notes || null })
+        .insert({ user_id: user.id, email: cleanEmail, platform: cleanPlatform, type: cleanType, notes: form.notes || null })
         .select().single()
       if (accErr) { setError(accErr.message); setLoading(false); return }
       accId = newAcc.id
@@ -361,36 +366,58 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
               value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           </div>
 
-          {/* Platform + Icon */}
+          {/* Unified Platform Category Quick-Select */}
           <div>
-            <label className={labelCls}>Platform</label>
-            <div className="flex gap-3 items-start">
-              <div className="flex-1">
-                <input type="text" required className={inputCls} placeholder="e.g. Facebook, Gmail, Antigravity IDE"
+            <label className={labelCls}>AI Platform Category <span className="font-normal text-muted-foreground">(click to unify name &amp; logo)</span></label>
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              {AI_PLATFORM_CATALOG.map(preset => {
+                const isSelected = resolveUnifiedPlatform(form.platform).id === preset.id
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, platform: preset.name, type: preset.category }))}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary/10 text-primary font-semibold shadow-xs'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <UnifiedPlatformIcon platform={preset.name} type={preset.category} size="sm" className="w-4 h-4 rounded text-[9px]" />
+                    <span>{preset.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-2.5 items-start">
+              <div>
+                <label className={labelCls}>Platform Name</label>
+                <input type="text" required className={inputCls} placeholder="e.g. Antigravity IDE 2.0"
                   value={form.platform} onChange={e => setForm({ ...form, platform: e.target.value })} />
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <label className="cursor-pointer group flex flex-col items-center justify-center w-[42px] h-[42px] rounded-xl border border-input bg-background overflow-hidden relative shrink-0 hover:border-ap-accent transition-colors">
+              <div>
+                <label className={labelCls}>Category</label>
+                <input type="text" required className={inputCls} placeholder="e.g. Coding"
+                  value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} />
+              </div>
+              <div className="flex flex-col items-center">
+                <label className={labelCls}>Logo</label>
+                <label className="cursor-pointer group flex flex-col items-center justify-center w-[40px] h-[40px] rounded-xl border border-input bg-background overflow-hidden relative shrink-0 hover:border-primary transition-colors" title="Upload custom logo (shared across platform)">
                   {iconPreview ? (
                     <img src={iconPreview} alt="icon" className="w-full h-full object-cover group-hover:opacity-75 transition-opacity" />
+                  ) : form.platform ? (
+                    <UnifiedPlatformIcon platform={form.platform} type={form.type} size="md" />
                   ) : (
-                    <ImageIcon className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <ImageIcon className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                   )}
                   <input type="file" accept="image/*" className="hidden" onChange={e => {
                     const file = e.target.files[0]
                     if (file) { setIconFile(file); setIconPreview(URL.createObjectURL(file)) }
                   }} />
                 </label>
-                <span className="text-[9px] text-muted-foreground uppercase font-semibold">Icon</span>
               </div>
             </div>
-          </div>
-
-          {/* Type */}
-          <div>
-            <label className={labelCls}>Type</label>
-            <input type="text" required className={inputCls} placeholder="e.g. Social, AI, Streaming"
-              value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} />
           </div>
 
           {/* Notes */}
