@@ -228,18 +228,18 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
           </div>
 
           <div>
-            <label className={labelCls}>Category <span className="text-slate-400">(optional)</span></label>
+            <label className={labelCls}>Category <span className="text-muted-foreground">(optional)</span></label>
             <div className="flex flex-wrap gap-2 mt-1 mb-2">
               {CATEGORIES.map(cat => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setForm(f => ({ ...f, category: f.category === cat ? '' : cat }))}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${form.category === cat ? 'text-white' : 'text-muted-foreground hover:bg-muted'}`}
-                  style={{ 
-                    background: form.category === cat ? CATEGORY_COLORS[cat] : 'transparent',
-                    borderColor: form.category === cat ? CATEGORY_COLORS[cat] : 'var(--border)'
-                  }}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    form.category === cat
+                      ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                      : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
                 >
                   {cat}
                 </button>
@@ -248,23 +248,23 @@ export default function SubscriptionModal({ isOpen, onClose, subscription, onSav
           </div>
 
           <div>
-            <label className={labelCls}>Payment Method <span className="text-slate-400">(optional)</span></label>
+            <label className={labelCls}>Payment Method <span className="text-muted-foreground">(optional)</span></label>
             <input type="text" className={inputCls} placeholder="e.g. Visa ...1234, PayPal, GCash"
               value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })} />
           </div>
 
           <div>
-            <label className={labelCls}>Notes <span className="text-slate-400">(optional)</span></label>
+            <label className={labelCls}>Notes <span className="text-muted-foreground">(optional)</span></label>
             <textarea className={`${inputCls} min-h-20 resize-y`} placeholder="Any notes…"
               value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
           </div>
 
-          <div className="flex items-center gap-3 justify-end pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-muted text-muted-foreground transition-colors">
+          <div className="flex items-center gap-3 justify-end pt-3 border-t border-border mt-4">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              className="px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? 'Saving…' : 'Save'}
             </button>
           </div>

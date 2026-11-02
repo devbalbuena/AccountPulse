@@ -313,10 +313,9 @@ function SubscriptionCalendar({ subs }) {
                 {/* Day number */}
                 <div className="flex justify-end mb-1">
                   <span
-                    className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'text-white' : ''}`}
+                    className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-primary text-primary-foreground' : ''}`}
                     style={{
-                      background: isToday ? '#4f46e5' : 'transparent',
-                      color: isToday ? 'white' : cell.isCurrentMonth ? 'var(--foreground)' : 'var(--muted-foreground)',
+                      color: isToday ? 'var(--primary-foreground)' : cell.isCurrentMonth ? 'var(--foreground)' : 'var(--muted-foreground)',
                       opacity: cell.isCurrentMonth ? 1 : 0.4,
                     }}
                   >
