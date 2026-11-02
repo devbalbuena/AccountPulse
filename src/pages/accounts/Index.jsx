@@ -966,8 +966,14 @@ export default function AccountsIndex() {
 
       {/* ── Slide-Over Activity Feed Drawer (Frees 100% Width for Accounts) ── */}
       {activityOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[1px] animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-card border-l border-border h-full flex flex-col shadow-xl animate-in slide-in-from-right duration-200">
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[1px] animate-in fade-in duration-150"
+          onClick={() => setActivityOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-card border-l border-border h-full flex flex-col shadow-xl animate-in slide-in-from-right duration-200"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="px-4 py-3.5 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-muted-foreground" />
