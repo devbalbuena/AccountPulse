@@ -9,13 +9,13 @@ const CATEGORY_COLORS = {
   'Entertainment': '#ec4899',
   'Productivity': '#3b82f6',
   'Storage': '#06b6d4',
-  'Dev Tools': '#a855f7',
+  'Dev Tools': '#8b5cf6',
   'Design': '#f97316',
   'Security': '#ef4444',
   'Finance': '#10b981',
-  'Health': '#34d399',
+  'Health': '#14b8a6',
   'Education': '#f59e0b',
-  'Other': 'var(--muted)'
+  'Other': '#64748b'
 }
 const CATEGORIES = Object.keys(CATEGORY_COLORS)
 
