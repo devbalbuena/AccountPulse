@@ -7,6 +7,7 @@ import { evaluateAccountStatus } from '@/lib/durationUtils'
 import { useToast } from '@/context/ToastContext'
 import { useNow } from '@/context/TimeContext'
 import { checkGroupReadyTransitions, resetGroupReadyWatcher } from '@/lib/groupNotificationWatcher'
+import CommandPalette from '@/components/CommandPalette'
 import {
   LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X, ChevronRight as ChevronRightIcon,
   Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle, Archive
@@ -63,6 +64,7 @@ export default function AppLayout() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
   const notifRef = useRef(null)
   const profileRef = useRef(null)
   const accountsRef = useRef([])
@@ -71,6 +73,18 @@ export default function AppLayout() {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Global Ctrl+K / Cmd+K shortcut for Command Palette
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCommandOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   useEffect(() => {
@@ -336,6 +350,20 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-1 ml-auto">
+            {/* Global Command Palette Launcher (Ctrl + K) */}
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border bg-muted/40 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors mr-1"
+              title="Open Quick Command Palette (Ctrl + K)"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline font-medium">Quick Launch</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.2 rounded bg-card border border-border text-[10px] font-mono font-semibold text-foreground">
+                Ctrl K
+              </kbd>
+            </button>
+
             {/* Quick Theme Toggle (Icon-only) */}
             <button
               onClick={toggle}
@@ -598,6 +626,12 @@ export default function AppLayout() {
           </div>
         </div>
       )}
+      {/* ── Global Command Palette (Ctrl+K) ── */}
+      <CommandPalette
+        isOpen={commandOpen}
+        onClose={() => setCommandOpen(false)}
+        onDataMutated={loadNotifications}
+      />
     </div>
   )
 }
