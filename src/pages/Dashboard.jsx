@@ -12,6 +12,7 @@ import { pickBestReadyAccount } from '@/lib/smartRotator'
 import { recordRotationEvent } from '@/lib/rotationAnalytics'
 import { usePinnedAccounts } from '@/lib/pinnedAccounts'
 import { usePrivacyMode } from '@/lib/privacyMask'
+import { notifyCrossTabSync, useCrossTabSync } from '@/lib/crossTabSync'
 import {
   Layers,
   Clock,
@@ -139,6 +140,8 @@ export default function Dashboard() {
     load()
   }, [load])
 
+  useCrossTabSync(load)
+
   async function handleQuickDrain(timer, account) {
     if (!timer || !timer.interval_hours) {
       addToast({ type: 'info', message: 'No interval configured on this timer.' })
@@ -229,6 +232,7 @@ export default function Dashboard() {
       platform: account.platform,
       modelName: timer.model_name || 'Timer',
     })
+    notifyCrossTabSync('timer-drained')
     load()
   }
 

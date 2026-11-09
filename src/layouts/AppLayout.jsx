@@ -10,6 +10,7 @@ import { checkGroupReadyTransitions, resetGroupReadyWatcher } from '@/lib/groupN
 import CommandPalette from '@/components/CommandPalette'
 import { useFocusTrap } from '@/lib/useFocusTrap'
 import { usePrivacyMode } from '@/lib/privacyMask'
+import { useCrossTabSync } from '@/lib/crossTabSync'
 import {
   LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X, ChevronRight as ChevronRightIcon,
   Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle, Archive, Eye, EyeOff
@@ -201,6 +202,10 @@ export default function AppLayout() {
     const interval = setInterval(loadNotifications, 60000)
     return () => clearInterval(interval)
   }, [user])
+
+  useCrossTabSync(() => {
+    loadNotifications()
+  })
 
   async function markAllRead() {
     if (!user) return

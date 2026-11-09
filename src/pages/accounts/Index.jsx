@@ -18,6 +18,7 @@ import { useFocusTrap } from '@/lib/useFocusTrap'
 import { pickBestReadyAccount } from '@/lib/smartRotator'
 import { usePinnedAccounts } from '@/lib/pinnedAccounts'
 import { usePrivacyMode } from '@/lib/privacyMask'
+import { notifyCrossTabSync, useCrossTabSync } from '@/lib/crossTabSync'
 import {
   Search,
   Pencil,
@@ -233,8 +234,11 @@ export default function AccountsIndex() {
     load()
   }, [load])
 
+  useCrossTabSync(load)
+
   async function insertNotif(message) {
     await supabase.from('notifications').insert({ user_id: user.id, message, is_read: false })
+    notifyCrossTabSync('accounts-updated')
   }
 
   function handleArchiveClick(acc) {
