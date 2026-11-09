@@ -8,6 +8,8 @@ import { evaluateAccountStatus, formatDuration } from '@/lib/durationUtils'
 import { useNow } from '@/context/TimeContext'
 import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
 import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
+import { pickBestReadyAccount } from '@/lib/smartRotator'
+import { recordRotationEvent } from '@/lib/rotationAnalytics'
 import {
   Layers,
   Clock,
@@ -19,6 +21,7 @@ import {
   Check,
   RotateCcw,
   CreditCard,
+  Zap,
 } from 'lucide-react'
 import { useToast } from '@/context/ToastContext'
 
@@ -215,7 +218,28 @@ export default function Dashboard() {
       message: `${account.email} (${timer.model_name || 'Timer'}) marked as drained (${durationText} cooldown)`,
       is_read: false,
     })
+    recordRotationEvent({
+      accountId: account.id,
+      email: account.email,
+      platform: account.platform,
+      modelName: timer.model_name || 'Timer',
+    })
     load()
+  }
+
+  async function handleSmartAutoRotate() {
+    const picked = pickBestReadyAccount(accounts, now)
+    if (!picked) {
+      addToast({ type: 'info', message: 'No ready accounts with configured cooldown intervals available.' })
+      return
+    }
+    const { account, timer } = picked
+    navigator.clipboard.writeText(account.email)
+    await handleQuickDrain(timer, account)
+    addToast({
+      type: 'success',
+      message: `Smart Rotator: Copied ${account.email} & drained ${timer.model_name || 'Timer'}!`,
+    })
   }
 
   // Evaluate statuses
@@ -296,7 +320,18 @@ export default function Dashboard() {
             Live quota availability &amp; subscription pulse
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {readyAccs.length > 0 && (
+            <button
+              type="button"
+              onClick={handleSmartAutoRotate}
+              title="Automatically pick the longest-idle ready account, copy its email, and start its cooldown"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold transition-colors hover:opacity-90 shadow-xs"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Pick &amp; Drain Best</span>
+            </button>
+          )}
           <button
             onClick={() => setIsAccountModalOpen(true)}
             title="Add Account"

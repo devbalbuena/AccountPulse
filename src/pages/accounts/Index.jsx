@@ -15,6 +15,7 @@ import { exportAccountsCSV } from '@/lib/dataBackup'
 import { recordRotationEvent } from '@/lib/rotationAnalytics'
 import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { pickBestReadyAccount } from '@/lib/smartRotator'
 import {
   Search,
   Pencil,
@@ -35,6 +36,7 @@ import {
   CheckSquare,
   Square,
   Download,
+  Zap,
 } from 'lucide-react'
 
 function timeAgo(ts) {
@@ -367,6 +369,23 @@ export default function AccountsIndex() {
     load()
   }
 
+  async function handleSmartAutoRotate() {
+    const picked = pickBestReadyAccount(filteredAccounts, now)
+    if (!picked) {
+      addToast({ type: 'info', message: 'No ready accounts with configured cooldown intervals available.' })
+      return
+    }
+    const { account, timer } = picked
+    navigator.clipboard.writeText(account.email)
+    setCopiedId(account.id)
+    setTimeout(() => setCopiedId(prev => (prev === account.id ? null : prev)), 1600)
+    await handleDrainedNow(timer, account)
+    addToast({
+      type: 'success',
+      message: `Smart Rotator: Copied ${account.email} & drained ${timer.model_name || 'Timer'}!`,
+    })
+  }
+
   function toggleSelectAccount(id) {
     setSelectedAccountIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -641,6 +660,19 @@ export default function AccountsIndex() {
 
         {/* Right Controls: Search + Compact Icon Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* 1-Click Smart Auto-Rotator Button */}
+          {readyCount > 0 && (
+            <button
+              type="button"
+              onClick={handleSmartAutoRotate}
+              title="Pick longest-idle ready account, copy email & start cooldown"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold hover:opacity-90 transition-colors shadow-xs"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Pick &amp; Drain</span>
+            </button>
+          )}
+
           {/* Search Input */}
           <div className="relative flex-1 sm:flex-initial sm:w-52">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
