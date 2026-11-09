@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
 import { exportSubscriptionsCSV } from '@/lib/dataBackup'
+import { exportSubscriptionsICS, isTrialSubscription } from '@/lib/calendarExport'
 import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import { useFocusTrap } from '@/lib/useFocusTrap'
 import {
@@ -301,7 +302,18 @@ function SubscriptionCalendar({ subs }) {
       <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
         {/* Calendar Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-          <h3 className="text-sm font-bold text-foreground">{monthName}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-foreground">{monthName}</h3>
+            <button
+              type="button"
+              onClick={() => exportSubscriptionsICS(subs)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-border bg-muted/40 hover:bg-muted text-[11px] font-semibold text-foreground transition-colors"
+              title="Export renewal dates to Google / Apple / Outlook Calendar (.ics)"
+            >
+              <Calendar className="w-3 h-3 text-primary" />
+              <span>Export .ics</span>
+            </button>
+          </div>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -863,6 +875,17 @@ export default function SubscriptionsIndex() {
             <Download className="w-3.5 h-3.5" />
           </button>
 
+          {/* Export Subscriptions Calendar .ics Button */}
+          <button
+            type="button"
+            onClick={() => exportSubscriptionsICS(filteredSubs)}
+            title="Export Renewal Dates to Calendar (.ics)"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-xs text-xs font-semibold"
+          >
+            <Calendar className="w-3.5 h-3.5 text-primary" />
+            <span className="hidden sm:inline">.ics</span>
+          </button>
+
           {/* Archived Subscriptions Link (Icon-Only) */}
           <Link
             to="/subscriptions/archived"
@@ -1156,6 +1179,11 @@ export default function SubscriptionsIndex() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="font-bold truncate text-xs sm:text-sm text-foreground">{sub.service_name}</p>
+                          {isTrialSubscription(sub) && (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                              Free Trial
+                            </span>
+                          )}
                           {isPaused && (
                             <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200">
                               Paused
