@@ -1,28 +1,52 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import Login from '@/pages/auth/Login'
-import Register from '@/pages/auth/Register'
-import Dashboard from '@/pages/Dashboard'
-import AccountsIndex from '@/pages/accounts/Index'
-import AccountsArchived from '@/pages/accounts/Archived'
-import SubscriptionsIndex from '@/pages/subscriptions/Index'
-import SubscriptionsArchived from '@/pages/subscriptions/Archived'
-import Notifications from '@/pages/Notifications'
-import Reports from '@/pages/Reports'
-import Settings from '@/pages/Settings'
 import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
-import Features from '@/pages/marketing/Features'
-import Security from '@/pages/marketing/Security'
-import Support from '@/pages/marketing/Support'
+
+// Route-level code-splitting via dynamic import()
+const Login = lazy(() => import('@/pages/auth/Login'))
+const Register = lazy(() => import('@/pages/auth/Register'))
+const Dashboard = lazy(() => import('@/pages/Dashboard'))
+const AccountsIndex = lazy(() => import('@/pages/accounts/Index'))
+const AccountsArchived = lazy(() => import('@/pages/accounts/Archived'))
+const SubscriptionsIndex = lazy(() => import('@/pages/subscriptions/Index'))
+const SubscriptionsArchived = lazy(() => import('@/pages/subscriptions/Archived'))
+const Notifications = lazy(() => import('@/pages/Notifications'))
+const Reports = lazy(() => import('@/pages/Reports'))
+const Settings = lazy(() => import('@/pages/Settings'))
+const Features = lazy(() => import('@/pages/marketing/Features'))
+const Security = lazy(() => import('@/pages/marketing/Security'))
+const Support = lazy(() => import('@/pages/marketing/Support'))
+
+function PageSpinner() {
+  return (
+    <div
+      className="flex items-center justify-center min-h-[45vh]"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading page"
+    >
+      <div
+        className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+        style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }}
+      />
+    </div>
+  )
+}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return (
-    <div style={{ background: '#0f1117', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#2563eb', fontSize: '14px' }}>Loading...</div>
-    </div>
-  )
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: 'var(--background)' }}
+      >
+        <PageSpinner />
+      </div>
+    )
+  }
   return user ? children : <Navigate to="/login" replace />
 }
 
@@ -34,31 +58,53 @@ function GuestRoute({ children }) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <Suspense fallback={<PageSpinner />}>
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      {/* Marketing routes */}
-      <Route path="/features" element={<Features />} />
-      <Route path="/security" element={<Security />} />
-      <Route path="/support" element={<Support />} />
+        {/* Marketing routes */}
+        <Route path="/features" element={<Features />} />
+        <Route path="/security" element={<Security />} />
+        <Route path="/support" element={<Support />} />
 
-      {/* Auth routes */}
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-        <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
-      </Route>
+        {/* Auth routes */}
+        <Route element={<AuthLayout />}>
+          <Route
+            path="/login"
+            element={
+              <GuestRoute>
+                <Login />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <GuestRoute>
+                <Register />
+              </GuestRoute>
+            }
+          />
+        </Route>
 
-      {/* Protected routes */}
-      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/accounts" element={<AccountsIndex />} />
-        <Route path="/accounts/archived" element={<AccountsArchived />} />
-        <Route path="/subscriptions" element={<SubscriptionsIndex />} />
-        <Route path="/subscriptions/archived" element={<SubscriptionsArchived />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-    </Routes>
+        {/* Protected routes */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/accounts" element={<AccountsIndex />} />
+          <Route path="/accounts/archived" element={<AccountsArchived />} />
+          <Route path="/subscriptions" element={<SubscriptionsIndex />} />
+          <Route path="/subscriptions/archived" element={<SubscriptionsArchived />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </Suspense>
   )
 }
