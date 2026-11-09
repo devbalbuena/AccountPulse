@@ -12,6 +12,7 @@ import { useNow } from '@/context/TimeContext'
 import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
 import { getAccountTags } from '@/lib/accountTags'
 import { exportAccountsCSV } from '@/lib/dataBackup'
+import { recordRotationEvent } from '@/lib/rotationAnalytics'
 import {
   Search,
   Pencil,
@@ -260,6 +261,12 @@ export default function AccountsIndex() {
     await insertNotif(
       `${account.email} (${timer.model_name || 'Timer'}) marked as drained (${durationText} cooldown)`
     )
+    recordRotationEvent({
+      accountId: account.id,
+      email: account.email,
+      platform: account.platform,
+      modelName: timer.model_name || 'Timer',
+    })
     load()
   }
 

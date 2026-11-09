@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useNow } from '@/context/TimeContext'
 import { evaluateAccountStatus, formatDuration } from '@/lib/durationUtils'
 import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
+import { computeRotationAnalytics } from '@/lib/rotationAnalytics'
 import {
   Calendar,
   CreditCard,
@@ -17,6 +18,7 @@ import {
   Check,
   Clock,
   History,
+  RotateCcw,
 } from 'lucide-react'
 
 // ─── Proportional Monthly Spend Bar Chart ───
@@ -136,7 +138,7 @@ export default function Reports() {
         supabase.from('subscriptions').select('*').is('deleted_at', null).eq('user_id', user.id),
         supabase.from('accounts').select('*, token_timers(*)').is('deleted_at', null).eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('token_timers').select('*'),
-        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(6),
+        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
       ])
 
       if (subsRes.error) throw subsRes.error
@@ -232,6 +234,7 @@ export default function Reports() {
   })
 
   const fleetMatrix = Array.from(fleetPlatformMap.values())
+  const rotationAnalytics = computeRotationAnalytics(accounts, notifications)
 
   // Category breakdown with clean colors
   const CATEGORY_COLORS = {
@@ -548,6 +551,101 @@ export default function Reports() {
           )}
         </div>
 
+        {/* ── Quota Rotation History & Account Utilization Analytics ── */}
+        <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex flex-wrap items-center justify-between gap-2 bg-card">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <RotateCcw className="w-3.5 h-3.5 text-primary" />
+                <span>Quota Rotation History &amp; Account Utilization</span>
+              </h3>
+              <p className="text-[11px] text-muted-foreground">
+                Tracks how often each account is drained and rotated vs. sitting idle in your fleet
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold tabular-nums">
+                {rotationAnalytics.totalRotations24h} today &bull; {rotationAnalytics.totalRotations7d} this week
+              </span>
+              {rotationAnalytics.idleAccountsCount > 0 && (
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-semibold tabular-nums">
+                  {rotationAnalytics.idleAccountsCount} idle
+                </span>
+              )}
+            </div>
+          </div>
+
+          {rotationAnalytics.accountStats.length === 0 ? (
+            <div className="py-10 text-center text-xs text-muted-foreground">
+              Add accounts to track quota rotation frequency
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <th className="py-2.5 px-4">Account Email</th>
+                    <th className="py-2.5 px-4">Platform</th>
+                    <th className="py-2.5 px-4">24h Rotations</th>
+                    <th className="py-2.5 px-4">7-Day Rotations</th>
+                    <th className="py-2.5 px-4">Last Rotated</th>
+                    <th className="py-2.5 px-4">Utilization Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rotationAnalytics.accountStats.map(stat => {
+                    const isHeavy = stat.count7d >= 3
+                    const isIdle = stat.count7d === 0
+                    return (
+                      <tr key={stat.account.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-2.5 px-4 font-mono font-bold text-foreground whitespace-nowrap">
+                          {stat.email}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            <UnifiedPlatformIcon
+                              platform={stat.platform}
+                              type={stat.account.type}
+                              allAccounts={accounts}
+                              iconUrl={stat.account.icon_url}
+                              size="sm"
+                            />
+                            <span className="font-semibold text-foreground">{stat.platform}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 font-bold tabular-nums text-foreground whitespace-nowrap">
+                          {stat.count24h}x
+                        </td>
+                        <td className="py-2.5 px-4 font-bold tabular-nums text-foreground whitespace-nowrap">
+                          {stat.count7d}x
+                        </td>
+                        <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap">
+                          {stat.lastRotatedMs ? timeAgo(new Date(stat.lastRotatedMs).toISOString()) : 'Never drained'}
+                        </td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          {isHeavy ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                              Heavily Utilized
+                            </span>
+                          ) : isIdle ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                              Idle — Ready to Use
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              Balanced Rotation
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* ── Recent Token Refresh Activity ── */}
         <div className="rounded-xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
@@ -564,7 +662,7 @@ export default function Reports() {
             <p className="text-xs text-muted-foreground text-center py-6">No recent token activity recorded</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              {notifications.map(n => {
+              {notifications.slice(0, 6).map(n => {
                 const matchingAcc = accounts.find(a => n.message.includes(a.email))
                 return (
                   <div

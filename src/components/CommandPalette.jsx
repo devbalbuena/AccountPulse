@@ -7,6 +7,7 @@ import { useToast } from '@/context/ToastContext'
 import { useNow } from '@/context/TimeContext'
 import { evaluateAccountStatus, formatDuration } from '@/lib/durationUtils'
 import { UnifiedPlatformIcon } from '@/lib/platformCategories'
+import { recordRotationEvent } from '@/lib/rotationAnalytics'
 import {
   Search,
   Copy,
@@ -94,6 +95,12 @@ export default function CommandPalette({ isOpen, onClose, onDataMutated }) {
       user_id: user.id,
       message: `${acc.email} (${timer.model_name || 'Timer'}) marked as drained (${durationText} cooldown)`,
       is_read: false,
+    })
+    recordRotationEvent({
+      accountId: acc.id,
+      email: acc.email,
+      platform: acc.platform,
+      modelName: timer.model_name || 'Timer',
     })
 
     if (typeof onDataMutated === 'function') onDataMutated()
