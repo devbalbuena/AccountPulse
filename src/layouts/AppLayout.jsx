@@ -8,12 +8,13 @@ import { useToast } from '@/context/ToastContext'
 import { useNow } from '@/context/TimeContext'
 import { checkGroupReadyTransitions, resetGroupReadyWatcher } from '@/lib/groupNotificationWatcher'
 import CommandPalette from '@/components/CommandPalette'
+import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal'
 import { useFocusTrap } from '@/lib/useFocusTrap'
 import { usePrivacyMode } from '@/lib/privacyMask'
 import { useCrossTabSync } from '@/lib/crossTabSync'
 import {
   LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X, ChevronRight as ChevronRightIcon,
-  Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle, Archive, Eye, EyeOff
+  Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle, Archive, Eye, EyeOff, HelpCircle
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -69,6 +70,7 @@ export default function AppLayout() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine)
   const notifRef = useRef(null)
   const profileRef = useRef(null)
@@ -90,17 +92,46 @@ export default function AppLayout() {
     }
   }, [])
 
-  // Global Ctrl+K / Cmd+K shortcut for Command Palette
+  // Global keyboard shortcuts (Ctrl+K, ?, B, T, Alt+1..4)
   useEffect(() => {
     function handleKeyDown(e) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setCommandOpen(prev => !prev)
+        return
+      }
+
+      const tag = e.target?.tagName
+      const isEditable =
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        e.target?.isContentEditable
+      if (isEditable) return
+
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (e.key === '1') { e.preventDefault(); navigate('/dashboard'); return }
+        if (e.key === '2') { e.preventDefault(); navigate('/accounts'); return }
+        if (e.key === '3') { e.preventDefault(); navigate('/subscriptions'); return }
+        if (e.key === '4') { e.preventDefault(); navigate('/reports'); return }
+      }
+
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === '?') {
+          e.preventDefault()
+          setShortcutsOpen(prev => !prev)
+        } else if (e.key.toLowerCase() === 'b') {
+          e.preventDefault()
+          togglePrivacy()
+        } else if (e.key.toLowerCase() === 't') {
+          e.preventDefault()
+          toggle()
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [navigate, togglePrivacy, toggle])
 
   useEffect(() => {
     localStorage.setItem('accountpulse_sidebar_collapsed', collapsed.toString())
@@ -405,6 +436,16 @@ export default function AppLayout() {
               </kbd>
             </button>
 
+            {/* Keyboard Shortcuts Cheat-Sheet (?) */}
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen(true)}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Keyboard Shortcuts (?)"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+
             {/* Quick Privacy / Screen-Share Mode Toggle (Blur Emails) */}
             <button
               type="button"
@@ -701,6 +742,12 @@ export default function AppLayout() {
         isOpen={commandOpen}
         onClose={() => setCommandOpen(false)}
         onDataMutated={loadNotifications}
+      />
+
+      {/* ── Keyboard Shortcuts Cheat-Sheet (?) ── */}
+      <KeyboardShortcutsModal
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
       />
     </div>
   )
