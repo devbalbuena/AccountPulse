@@ -1,6 +1,8 @@
 /**
- * Timer presets for quick creation in AccountModal
+ * Timer presets for quick creation in AccountModal & Custom Timer Preset Manager in Settings
  */
+
+const CUSTOM_PRESETS_KEY = 'ap_custom_timer_presets'
 
 export const TIMER_PRESETS = [
   {
@@ -13,7 +15,7 @@ export const TIMER_PRESETS = [
     total_hours: 167,
     color: '#10b981', // Emerald
     isCustom: false,
-    notify_on_ready: true, // Weekly group: opt-in ON by default
+    notify_on_ready: true,
   },
   {
     id: 'antigravity_gemini_5h',
@@ -25,7 +27,7 @@ export const TIMER_PRESETS = [
     total_hours: 5,
     color: '#06b6d4', // Cyan
     isCustom: false,
-    notify_on_ready: false, // 5-hour group: opt-in OFF by default
+    notify_on_ready: false,
   },
   {
     id: 'antigravity_claude_weekly',
@@ -37,7 +39,7 @@ export const TIMER_PRESETS = [
     total_hours: 167,
     color: '#8b5cf6', // Purple
     isCustom: false,
-    notify_on_ready: true, // Weekly group: opt-in ON by default
+    notify_on_ready: true,
   },
   {
     id: 'antigravity_claude_5h',
@@ -49,7 +51,7 @@ export const TIMER_PRESETS = [
     total_hours: 5,
     color: '#ec4899', // Pink
     isCustom: false,
-    notify_on_ready: false, // 5-hour group: opt-in OFF by default
+    notify_on_ready: false,
   },
   {
     id: 'chatgpt_image',
@@ -74,18 +76,93 @@ export const TIMER_PRESETS = [
     color: '#2563eb', // Indigo/Blue
     isCustom: true,
     notify_on_ready: false,
-  }
+  },
 ]
 
 /**
  * The 4 Antigravity presets bundled together
  */
 export const ANTIGRAVITY_4_PRESETS = [
-  TIMER_PRESETS[0], // Gemini Weekly (notify_on_ready: true)
-  TIMER_PRESETS[1], // Gemini 5-hour (notify_on_ready: false)
-  TIMER_PRESETS[2], // Claude/GPT Weekly (notify_on_ready: true)
-  TIMER_PRESETS[3], // Claude/GPT 5-hour (notify_on_ready: false)
+  TIMER_PRESETS[0],
+  TIMER_PRESETS[1],
+  TIMER_PRESETS[2],
+  TIMER_PRESETS[3],
 ]
+
+/**
+ * Retrieves user-defined custom timer presets from localStorage
+ */
+export function getCustomPresets() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_PRESETS_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Saves or updates a custom timer preset
+ */
+export function saveCustomPreset({
+  id,
+  model_name,
+  group_name,
+  interval_days = 0,
+  interval_hours = 0,
+  color = '#2563eb',
+  notify_on_ready = false,
+}) {
+  const days = Math.max(0, parseInt(interval_days) || 0)
+  const hours = Math.max(0, parseInt(interval_hours) || 0)
+  const totalHours = days * 24 + hours
+  const cleanModel = (model_name || 'Custom Model').trim()
+  const cleanGroup = (group_name || cleanModel).trim()
+
+  const newPreset = {
+    id: id || `user_preset_${Date.now()}`,
+    label: `★ ${cleanGroup} — ${cleanModel} (${totalHours}h)`,
+    model_name: cleanModel,
+    group_name: cleanGroup,
+    interval_days: days,
+    interval_hours: hours,
+    total_hours: totalHours,
+    color: color || '#2563eb',
+    isCustom: false,
+    isUserPreset: true,
+    notify_on_ready: Boolean(notify_on_ready),
+  }
+
+  const existing = getCustomPresets()
+  const idx = existing.findIndex(p => p.id === newPreset.id)
+  let updated
+  if (idx >= 0) {
+    updated = [...existing]
+    updated[idx] = newPreset
+  } else {
+    updated = [newPreset, ...existing]
+  }
+  localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(updated))
+  return newPreset
+}
+
+/**
+ * Deletes a user-defined custom timer preset by ID
+ */
+export function deleteCustomPreset(id) {
+  const existing = getCustomPresets().filter(p => p.id !== id)
+  localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(existing))
+  return existing
+}
+
+/**
+ * Returns all presets (user custom presets first, followed by built-in presets)
+ */
+export function getAllTimerPresets() {
+  return [...getCustomPresets(), ...TIMER_PRESETS]
+}
 
 /**
  * Creates a timer state object from a preset definition
@@ -102,6 +179,6 @@ export function createTimerFromPreset(preset) {
     originalNextDueAt: null,
     showColorPicker: false,
     presetId: preset.id,
-    notify_on_ready: preset.notify_on_ready ?? false
+    notify_on_ready: preset.notify_on_ready ?? false,
   }
 }

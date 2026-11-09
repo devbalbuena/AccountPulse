@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ImageIcon, Plus, Trash2, Clock, AlertTriangle, Sparkles, Bell } from 'lucide-react'
-import { TIMER_PRESETS, ANTIGRAVITY_4_PRESETS, createTimerFromPreset } from '@/lib/timerPresets'
+import { ImageIcon, Plus, Trash2, Clock, AlertTriangle, Sparkles, Bell, BookmarkPlus } from 'lucide-react'
+import { TIMER_PRESETS, ANTIGRAVITY_4_PRESETS, createTimerFromPreset, getAllTimerPresets, saveCustomPreset } from '@/lib/timerPresets'
 import { AI_PLATFORM_CATALOG, resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
 
 const inputCls = "w-full px-3.5 py-2.5 rounded-lg text-sm bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
@@ -126,9 +126,12 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
   const [loading, setLoading] = useState(false)
   const [iconFile, setIconFile] = useState(null)
   const [iconPreview, setIconPreview] = useState('')
+  const [availablePresets, setAvailablePresets] = useState(() => getAllTimerPresets())
+  const [savedPresetFeedback, setSavedPresetFeedback] = useState(null)
 
   useEffect(() => {
     if (!isOpen) return
+    setAvailablePresets(getAllTimerPresets())
     if (account) {
       setForm({
         email: account.email,
@@ -273,7 +276,7 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
   }
 
   function handleSelectPreset(index, presetId) {
-    const preset = TIMER_PRESETS.find(p => p.id === presetId)
+    const preset = availablePresets.find(p => p.id === presetId)
     if (!preset) return
 
     setTimers(prev => {
@@ -458,14 +461,38 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
 
                 {/* Preset selector */}
                 <div>
-                  <label className={labelCls}>Preset Template</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Preset Template</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const created = saveCustomPreset({
+                          model_name: t.model_name || 'Custom Model',
+                          group_name: t.group_name || t.model_name || 'Custom Group',
+                          interval_days: t.interval_days || 0,
+                          interval_hours: t.interval_hours || 5,
+                          color: t.color || '#2563eb',
+                          notify_on_ready: t.notify_on_ready,
+                        })
+                        setAvailablePresets(getAllTimerPresets())
+                        updateTimer(idx, 'presetId', created.id)
+                        setSavedPresetFeedback(idx)
+                        setTimeout(() => setSavedPresetFeedback(null), 2000)
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
+                      title="Save current model timer configuration as a reusable preset"
+                    >
+                      <BookmarkPlus className="w-3 h-3" />
+                      {savedPresetFeedback === idx ? 'Saved to Presets!' : 'Save as Custom Preset'}
+                    </button>
+                  </div>
                   <select 
                     className={`${inputCls} py-2 text-xs`}
                     value={t.presetId || ''}
                     onChange={e => handleSelectPreset(idx, e.target.value)}
                   >
                     <option value="">Choose preset (or customize below)...</option>
-                    {TIMER_PRESETS.map(p => (
+                    {availablePresets.map(p => (
                       <option key={p.id} value={p.id}>{p.label}</option>
                     ))}
                   </select>

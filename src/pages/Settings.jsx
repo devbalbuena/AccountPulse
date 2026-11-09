@@ -3,9 +3,15 @@ import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Sun, Moon, User, Palette, Bell, ShieldCheck, Check, Laptop, LogOut } from 'lucide-react'
+import { Sun, Moon, User, Palette, Bell, ShieldCheck, Check, Laptop, LogOut, Clock, Plus, Trash2 } from 'lucide-react'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
+import {
+  getCustomPresets,
+  saveCustomPreset,
+  deleteCustomPreset,
+  TIMER_PRESETS,
+} from '@/lib/timerPresets'
 import {
   isBrowserPushSupported,
   getBrowserPushPermission,
@@ -24,6 +30,7 @@ const TABS = [
   { id: 'profile',      label: 'Profile',       icon: User },
   { id: 'appearance',   label: 'Appearance',    icon: Palette },
   { id: 'notifications',label: 'Notifications', icon: Bell },
+  { id: 'presets',      label: 'Timer Presets', icon: Clock },
   { id: 'security',     label: 'Security',      icon: ShieldCheck },
 ]
 
@@ -491,6 +498,214 @@ function NotificationsTab() {
   )
 }
 
+// ─── Custom Timer Presets Tab ───────────────────────────────────────────────────
+function PresetsTab() {
+  const [customPresets, setCustomPresets] = useState(() => getCustomPresets())
+  const [form, setForm] = useState({
+    model_name: '',
+    group_name: '',
+    interval_days: '0',
+    interval_hours: '3',
+    color: '#2563eb',
+    notify_on_ready: true,
+  })
+  const [msg, setMsg] = useState('')
+
+  const starterExamples = [
+    { model_name: 'DeepSeek R1 3h', group_name: 'DeepSeek', interval_days: 0, interval_hours: 3, color: '#3b82f6' },
+    { model_name: 'Claude Team 24h', group_name: 'Claude / GPT', interval_days: 1, interval_hours: 0, color: '#8b5cf6' },
+    { model_name: 'OpenAI o3-mini 12h', group_name: 'ChatGPT', interval_days: 0, interval_hours: 12, color: '#10b981' },
+  ]
+
+  function handleAddPreset(e) {
+    e.preventDefault()
+    if (!form.model_name.trim()) return
+    const total = (parseInt(form.interval_days) || 0) * 24 + (parseInt(form.interval_hours) || 0)
+    if (total <= 0) {
+      setMsg('Interval must be at least 1 hour.')
+      return
+    }
+    saveCustomPreset(form)
+    setCustomPresets(getCustomPresets())
+    setForm({
+      model_name: '',
+      group_name: '',
+      interval_days: '0',
+      interval_hours: '3',
+      color: '#2563eb',
+      notify_on_ready: true,
+    })
+    setMsg('Custom preset saved! Available in Account Modal.')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  function handleQuickAddStarter(ex) {
+    saveCustomPreset({ ...ex, notify_on_ready: true })
+    setCustomPresets(getCustomPresets())
+    setMsg(`Added "${ex.model_name}" to your custom presets!`)
+    setTimeout(() => setMsg(''), 2500)
+  }
+
+  function handleRemovePreset(id) {
+    setCustomPresets(deleteCustomPreset(id))
+  }
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      {/* Create Custom Preset Card */}
+      <div className="p-5 rounded-xl border border-border bg-card shadow-xs space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Create Custom Timer Preset</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Save your own model cooldown templates (e.g. DeepSeek 3h, Claude Team 24h) for 1-click selection when adding or editing accounts.
+            </p>
+          </div>
+          {msg && (
+            <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md">
+              {msg}
+            </span>
+          )}
+        </div>
+
+        {/* Quick Starter Pills */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-semibold text-muted-foreground mr-1">Quick Add:</span>
+          {starterExamples.map(ex => (
+            <button
+              key={ex.model_name}
+              type="button"
+              onClick={() => handleQuickAddStarter(ex)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-muted/40 hover:bg-muted text-xs font-medium text-foreground transition-colors"
+            >
+              <Plus className="w-3 h-3 text-primary" />
+              <span>{ex.model_name}</span>
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleAddPreset} className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-border/60">
+          <div className="sm:col-span-2">
+            <label className={labelCls} style={{ color: 'var(--muted-foreground)' }}>Model Name</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. DeepSeek R1 3-Hour"
+              value={form.model_name}
+              onChange={e => setForm({ ...form, model_name: e.target.value })}
+              className={inputCls}
+              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelCls} style={{ color: 'var(--muted-foreground)' }}>Group Name</label>
+            <input
+              type="text"
+              placeholder="e.g. DeepSeek, Claude / GPT"
+              value={form.group_name}
+              onChange={e => setForm({ ...form, group_name: e.target.value })}
+              className={inputCls}
+              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            />
+          </div>
+          <div>
+            <label className={labelCls} style={{ color: 'var(--muted-foreground)' }}>Days</label>
+            <input
+              type="number"
+              min="0"
+              value={form.interval_days}
+              onChange={e => setForm({ ...form, interval_days: e.target.value })}
+              className={inputCls}
+              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            />
+          </div>
+          <div>
+            <label className={labelCls} style={{ color: 'var(--muted-foreground)' }}>Hours</label>
+            <input
+              type="number"
+              min="0"
+              max="23"
+              value={form.interval_hours}
+              onChange={e => setForm({ ...form, interval_hours: e.target.value })}
+              className={inputCls}
+              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            />
+          </div>
+          <div>
+            <label className={labelCls} style={{ color: 'var(--muted-foreground)' }}>Color</label>
+            <input
+              type="color"
+              value={form.color}
+              onChange={e => setForm({ ...form, color: e.target.value })}
+              className="w-full h-[38px] p-1 rounded-lg border border-border bg-background cursor-pointer"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="w-full px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-colors shadow-xs"
+            >
+              Save Preset
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Saved Custom Presets List */}
+      <div className="p-5 rounded-xl border border-border bg-card shadow-xs space-y-3">
+        <h3 className="text-sm font-bold text-foreground">
+          Your Saved Custom Presets ({customPresets.length})
+        </h3>
+        {customPresets.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-4 text-center">
+            No custom presets saved yet. Add one above or click &ldquo;Save as Custom Preset&rdquo; inside the Account modal.
+          </p>
+        ) : (
+          <div className="divide-y divide-border">
+            {customPresets.map(p => (
+              <div key={p.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: p.color }} />
+                  <div className="min-w-0">
+                    <p className="font-bold text-foreground truncate">{p.model_name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Group: {p.group_name} &bull; {p.total_hours}h cooldown ({p.interval_days}d {p.interval_hours}h)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemovePreset(p.id)}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors"
+                  title="Delete custom preset"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Built-in Presets Reference */}
+      <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">
+        <p className="text-xs font-bold text-foreground">Built-in System Presets ({TIMER_PRESETS.filter(p => !p.isCustom).length})</p>
+        <div className="flex flex-wrap gap-2">
+          {TIMER_PRESETS.filter(p => !p.isCustom).map(p => (
+            <span
+              key={p.id}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-card text-[11px] font-medium text-muted-foreground"
+            >
+              <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+              <span>{p.label}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Security Tab ───────────────────────────────────────────────────────────────
 function SecurityTab() {
   const navigate = useNavigate()
@@ -634,6 +849,7 @@ export default function Settings() {
     profile:       <ProfileTab user={user} />,
     appearance:    <AppearanceTab />,
     notifications: <NotificationsTab />,
+    presets:       <PresetsTab />,
     security:      <SecurityTab />,
   }
 
