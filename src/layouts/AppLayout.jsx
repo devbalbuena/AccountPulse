@@ -9,9 +9,10 @@ import { useNow } from '@/context/TimeContext'
 import { checkGroupReadyTransitions, resetGroupReadyWatcher } from '@/lib/groupNotificationWatcher'
 import CommandPalette from '@/components/CommandPalette'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { usePrivacyMode } from '@/lib/privacyMask'
 import {
   LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X, ChevronRight as ChevronRightIcon,
-  Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle, Archive
+  Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle, Archive, Eye, EyeOff
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -48,6 +49,7 @@ export default function AppLayout() {
   const now = useNow()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
+  const { privacyMode, togglePrivacy } = usePrivacyMode()
   const [unreadCount, setUnreadCount] = useState(0)
   const [readyCount, setReadyCount] = useState(0)
   const [notifications, setNotifications] = useState([])
@@ -396,6 +398,20 @@ export default function AppLayout() {
               <kbd className="hidden sm:inline-block px-1.5 py-0.2 rounded bg-card border border-border text-[10px] font-mono font-semibold text-foreground">
                 Ctrl K
               </kbd>
+            </button>
+
+            {/* Quick Privacy / Screen-Share Mode Toggle (Blur Emails) */}
+            <button
+              type="button"
+              onClick={togglePrivacy}
+              className={`p-2 rounded-lg transition-colors ${
+                privacyMode
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+              title={privacyMode ? 'Screen-Share Mode ON (Emails masked) — Click to unblur' : 'Screen-Share Mode OFF — Click to mask emails'}
+            >
+              {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
 
             {/* Quick Theme Toggle (Icon-only) */}

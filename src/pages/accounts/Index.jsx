@@ -17,6 +17,7 @@ import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import { useFocusTrap } from '@/lib/useFocusTrap'
 import { pickBestReadyAccount } from '@/lib/smartRotator'
 import { usePinnedAccounts } from '@/lib/pinnedAccounts'
+import { usePrivacyMode } from '@/lib/privacyMask'
 import {
   Search,
   Pencil,
@@ -130,6 +131,7 @@ export default function AccountsIndex() {
   const now = useNow()
   const { addToast } = useToast()
   const { pinnedIds, togglePin, isPinned } = usePinnedAccounts()
+  const { mask } = usePrivacyMode()
 
   function toggleViewMode(mode) {
     setViewMode(mode)
@@ -1024,7 +1026,8 @@ export default function AccountsIndex() {
                     {items.map(acc => {
                       const accountStatus = evaluateAccountStatus(acc, now)
                       const groups = accountStatus.groups || []
-                      const [emailUser, emailDomain] = (acc.email || '').split('@')
+                      const maskedEmail = mask(acc.email)
+                      const [emailUser, emailDomain] = (maskedEmail || '').split('@')
 
                       return (
                         <div
@@ -1060,7 +1063,7 @@ export default function AccountsIndex() {
                               />
                               <p
                                 className="text-xs sm:text-sm font-bold font-mono text-foreground truncate"
-                                title={acc.email}
+                                title={maskedEmail}
                               >
                                 {emailUser}
                                 {emailDomain && (
@@ -1336,7 +1339,7 @@ export default function AccountsIndex() {
                                       accountStatus.isReady ? 'bg-emerald-500' : 'bg-amber-500'
                                     }`}
                                   />
-                                  <span>{acc.email}</span>
+                                  <span>{mask(acc.email)}</span>
                                   <button
                                     type="button"
                                     onClick={e => handleCopyEmail(e, acc)}

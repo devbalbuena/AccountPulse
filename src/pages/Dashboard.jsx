@@ -11,6 +11,7 @@ import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import { pickBestReadyAccount } from '@/lib/smartRotator'
 import { recordRotationEvent } from '@/lib/rotationAnalytics'
 import { usePinnedAccounts } from '@/lib/pinnedAccounts'
+import { usePrivacyMode } from '@/lib/privacyMask'
 import {
   Layers,
   Clock,
@@ -91,6 +92,7 @@ export default function Dashboard() {
   const now = useNow()
   const { addToast } = useToast()
   const { pinnedIds, togglePin, isPinned } = usePinnedAccounts()
+  const { mask } = usePrivacyMode()
 
   const load = useCallback(async () => {
     try {
@@ -433,7 +435,7 @@ export default function Dashboard() {
               <div className="my-2 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <p className="text-sm font-bold font-mono text-foreground truncate">
-                    {nextToReturn.account.email}
+                    {mask(nextToReturn.account.email)}
                   </p>
                   <CopyIconBtn text={nextToReturn.account.email} />
                 </div>
@@ -590,8 +592,8 @@ export default function Dashboard() {
                         />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="text-xs sm:text-sm font-bold font-mono text-foreground truncate" title={acc.email}>
-                              {acc.email}
+                            <p className="text-xs sm:text-sm font-bold font-mono text-foreground truncate" title={mask(acc.email)}>
+                              {mask(acc.email)}
                             </p>
                             <CopyIconBtn text={acc.email} />
                             <button
