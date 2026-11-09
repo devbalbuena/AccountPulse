@@ -10,6 +10,7 @@ import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCateg
 import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import { pickBestReadyAccount } from '@/lib/smartRotator'
 import { recordRotationEvent } from '@/lib/rotationAnalytics'
+import { usePinnedAccounts } from '@/lib/pinnedAccounts'
 import {
   Layers,
   Clock,
@@ -22,6 +23,7 @@ import {
   RotateCcw,
   CreditCard,
   Zap,
+  Star,
 } from 'lucide-react'
 import { useToast } from '@/context/ToastContext'
 
@@ -88,6 +90,7 @@ export default function Dashboard() {
 
   const now = useNow()
   const { addToast } = useToast()
+  const { pinnedIds, togglePin, isPinned } = usePinnedAccounts()
 
   const load = useCallback(async () => {
     try {
@@ -228,7 +231,7 @@ export default function Dashboard() {
   }
 
   async function handleSmartAutoRotate() {
-    const picked = pickBestReadyAccount(accounts, now)
+    const picked = pickBestReadyAccount(accounts, now, pinnedIds)
     if (!picked) {
       addToast({ type: 'info', message: 'No ready accounts with configured cooldown intervals available.' })
       return
@@ -260,6 +263,7 @@ export default function Dashboard() {
     }
   })
 
+  readyAccs.sort((a, b) => (isPinned(b.account.id) ? 1 : 0) - (isPinned(a.account.id) ? 1 : 0))
   cooldownAccs.sort((a, b) => a.status.soonestAvailableMs - b.status.soonestAvailableMs)
   const nextToReturn = cooldownAccs[0] || null
   const nextGroup = nextToReturn
@@ -590,6 +594,18 @@ export default function Dashboard() {
                               {acc.email}
                             </p>
                             <CopyIconBtn text={acc.email} />
+                            <button
+                              type="button"
+                              onClick={() => togglePin(acc.id)}
+                              title={isPinned(acc.id) ? 'Unpin priority account' : 'Pin as priority account'}
+                              className={`w-6 h-6 rounded-md inline-flex items-center justify-center transition-colors shrink-0 ${
+                                isPinned(acc.id)
+                                  ? 'text-amber-500 hover:bg-amber-500/10'
+                                  : 'text-muted-foreground/50 hover:text-amber-500 hover:bg-muted'
+                              }`}
+                            >
+                              <Star className={`w-3.5 h-3.5 ${isPinned(acc.id) ? 'fill-amber-500' : ''}`} />
+                            </button>
                           </div>
                           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
                             <span className="font-medium text-foreground/80">{unified.name}</span>

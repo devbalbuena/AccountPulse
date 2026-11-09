@@ -16,6 +16,7 @@ import { recordRotationEvent } from '@/lib/rotationAnalytics'
 import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import { useFocusTrap } from '@/lib/useFocusTrap'
 import { pickBestReadyAccount } from '@/lib/smartRotator'
+import { usePinnedAccounts } from '@/lib/pinnedAccounts'
 import {
   Search,
   Pencil,
@@ -37,6 +38,7 @@ import {
   Square,
   Download,
   Zap,
+  Star,
 } from 'lucide-react'
 
 function timeAgo(ts) {
@@ -127,6 +129,7 @@ export default function AccountsIndex() {
 
   const now = useNow()
   const { addToast } = useToast()
+  const { pinnedIds, togglePin, isPinned } = usePinnedAccounts()
 
   function toggleViewMode(mode) {
     setViewMode(mode)
@@ -370,7 +373,7 @@ export default function AccountsIndex() {
   }
 
   async function handleSmartAutoRotate() {
-    const picked = pickBestReadyAccount(filteredAccounts, now)
+    const picked = pickBestReadyAccount(filteredAccounts, now, pinnedIds)
     if (!picked) {
       addToast({ type: 'info', message: 'No ready accounts with configured cooldown intervals available.' })
       return
@@ -572,6 +575,10 @@ export default function AccountsIndex() {
       return true
     })
     .sort((a, b) => {
+      const aPin = isPinned(a.id) ? 1 : 0
+      const bPin = isPinned(b.id) ? 1 : 0
+      if (aPin !== bPin) return bPin - aPin
+
       if (sortBy === 'soonest' || sortBy === 'latest') {
         const aHasTimers = a.token_timers && a.token_timers.some(t => !t.deleted_at)
         const bHasTimers = b.token_timers && b.token_timers.some(t => !t.deleted_at)
@@ -1071,6 +1078,18 @@ export default function AccountsIndex() {
                                 ) : (
                                   <Copy className="w-3.5 h-3.5" />
                                 )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => togglePin(acc.id)}
+                                title={isPinned(acc.id) ? 'Unpin priority account' : 'Pin as priority account'}
+                                className={`w-6 h-6 rounded-md inline-flex items-center justify-center transition-colors shrink-0 ${
+                                  isPinned(acc.id)
+                                    ? 'text-amber-500 hover:bg-amber-500/10'
+                                    : 'text-muted-foreground/50 hover:text-amber-500 hover:bg-muted'
+                                }`}
+                              >
+                                <Star className={`w-3.5 h-3.5 ${isPinned(acc.id) ? 'fill-amber-500' : ''}`} />
                               </button>
                             </div>
 
