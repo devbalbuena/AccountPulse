@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 // Route-level code-splitting via dynamic import()
 const Login = lazy(() => import('@/pages/auth/Login'))
@@ -58,53 +59,55 @@ function GuestRoute({ children }) {
 
 export default function App() {
   return (
-    <Suspense fallback={<PageSpinner />}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <ErrorBoundary>
+      <Suspense fallback={<PageSpinner />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        {/* Marketing routes */}
-        <Route path="/features" element={<Features />} />
-        <Route path="/security" element={<Security />} />
-        <Route path="/support" element={<Support />} />
+          {/* Marketing routes */}
+          <Route path="/features" element={<Features />} />
+          <Route path="/security" element={<Security />} />
+          <Route path="/support" element={<Support />} />
 
-        {/* Auth routes */}
-        <Route element={<AuthLayout />}>
+          {/* Auth routes */}
+          <Route element={<AuthLayout />}>
+            <Route
+              path="/login"
+              element={
+                <GuestRoute>
+                  <Login />
+                </GuestRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <GuestRoute>
+                  <Register />
+                </GuestRoute>
+              }
+            />
+          </Route>
+
+          {/* Protected routes */}
           <Route
-            path="/login"
             element={
-              <GuestRoute>
-                <Login />
-              </GuestRoute>
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
             }
-          />
-          <Route
-            path="/register"
-            element={
-              <GuestRoute>
-                <Register />
-              </GuestRoute>
-            }
-          />
-        </Route>
-
-        {/* Protected routes */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/accounts" element={<AccountsIndex />} />
-          <Route path="/accounts/archived" element={<AccountsArchived />} />
-          <Route path="/subscriptions" element={<SubscriptionsIndex />} />
-          <Route path="/subscriptions/archived" element={<SubscriptionsArchived />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </Suspense>
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/accounts" element={<AccountsIndex />} />
+            <Route path="/accounts/archived" element={<AccountsArchived />} />
+            <Route path="/subscriptions" element={<SubscriptionsIndex />} />
+            <Route path="/subscriptions/archived" element={<SubscriptionsArchived />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   )
 }
