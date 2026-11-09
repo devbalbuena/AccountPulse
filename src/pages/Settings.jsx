@@ -3,9 +3,15 @@ import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Sun, Moon, User, Palette, Bell, ShieldCheck, Check, Laptop, LogOut, Clock, Plus, Trash2 } from 'lucide-react'
+import { Sun, Moon, User, Palette, Bell, ShieldCheck, Check, Laptop, LogOut, Clock, Plus, Trash2, Download, Upload, Database } from 'lucide-react'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
+import {
+  exportFullBackupJSON,
+  exportAccountsCSV,
+  exportSubscriptionsCSV,
+  restoreFromBackupJSON,
+} from '@/lib/dataBackup'
 import {
   getCustomPresets,
   saveCustomPreset,
@@ -31,6 +37,7 @@ const TABS = [
   { id: 'appearance',   label: 'Appearance',    icon: Palette },
   { id: 'notifications',label: 'Notifications', icon: Bell },
   { id: 'presets',      label: 'Timer Presets', icon: Clock },
+  { id: 'backup',       label: 'Data & Backup', icon: Database },
   { id: 'security',     label: 'Security',      icon: ShieldCheck },
 ]
 
@@ -706,6 +713,156 @@ function PresetsTab() {
   )
 }
 
+// ─── Data Export & Backup Tab ──────────────────────────────────────────────────
+function DataBackupTab({ user }) {
+  const [statusMsg, setStatusMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function handleExportJSON() {
+    if (!user) return
+    setBusy(true)
+    setStatusMsg('Preparing full JSON backup...')
+    try {
+      await exportFullBackupJSON(user.id)
+      setStatusMsg('Full JSON backup downloaded!')
+    } catch (err) {
+      setStatusMsg(`Export failed: ${err.message}`)
+    } finally {
+      setBusy(false)
+      setTimeout(() => setStatusMsg(''), 4000)
+    }
+  }
+
+  async function handleExportAccountsCSV() {
+    if (!user) return
+    setBusy(true)
+    const { data } = await supabase
+      .from('accounts')
+      .select('*, token_timers(*)')
+      .is('deleted_at', null)
+      .eq('user_id', user.id)
+    exportAccountsCSV(data || [])
+    setBusy(false)
+    setStatusMsg('Accounts CSV exported!')
+    setTimeout(() => setStatusMsg(''), 3500)
+  }
+
+  async function handleExportSubscriptionsCSV() {
+    if (!user) return
+    setBusy(true)
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .is('deleted_at', null)
+      .eq('user_id', user.id)
+    exportSubscriptionsCSV(data || [])
+    setBusy(false)
+    setStatusMsg('Subscriptions CSV exported!')
+    setTimeout(() => setStatusMsg(''), 3500)
+  }
+
+  async function handleRestoreFile(e) {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    setBusy(true)
+    setStatusMsg('Restoring backup...')
+    try {
+      const text = await file.text()
+      const { restoredAccounts, restoredSubs } = await restoreFromBackupJSON(user.id, text)
+      setStatusMsg(
+        `Backup restored! Imported ${restoredAccounts} new account(s) and ${restoredSubs} subscription(s).`
+      )
+    } catch (err) {
+      setStatusMsg(`Restore error: ${err.message}`)
+    } finally {
+      setBusy(false)
+      e.target.value = ''
+    }
+  }
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      {statusMsg && (
+        <div className="px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/10 text-xs font-semibold text-primary">
+          {statusMsg}
+        </div>
+      )}
+
+      {/* Export Section */}
+      <div className="p-5 rounded-xl border border-border bg-card shadow-xs space-y-4">
+        <div>
+          <h3 className="text-sm font-bold text-foreground">Export Data (CSV &amp; JSON)</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Download your accounts, active timers, subscriptions, custom presets, and tags as CSV spreadsheets or a complete JSON snapshot.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleExportJSON}
+            className="flex flex-col items-start justify-between p-3.5 rounded-xl border border-border bg-muted/20 hover:bg-muted/50 transition-colors text-left"
+          >
+            <Download className="w-4 h-4 text-primary mb-2" />
+            <div>
+              <p className="text-xs font-bold text-foreground">Full JSON Backup</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">All accounts, timers, subs &amp; presets</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleExportAccountsCSV}
+            className="flex flex-col items-start justify-between p-3.5 rounded-xl border border-border bg-muted/20 hover:bg-muted/50 transition-colors text-left"
+          >
+            <Download className="w-4 h-4 text-emerald-600 mb-2" />
+            <div>
+              <p className="text-xs font-bold text-foreground">Accounts CSV</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Spreadsheet of accounts &amp; timers</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleExportSubscriptionsCSV}
+            className="flex flex-col items-start justify-between p-3.5 rounded-xl border border-border bg-muted/20 hover:bg-muted/50 transition-colors text-left"
+          >
+            <Download className="w-4 h-4 text-purple-600 mb-2" />
+            <div>
+              <p className="text-xs font-bold text-foreground">Subscriptions CSV</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Spreadsheet of recurring bills</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Import / Restore Section */}
+      <div className="p-5 rounded-xl border border-border bg-card shadow-xs space-y-3">
+        <div>
+          <h3 className="text-sm font-bold text-foreground">Import &amp; Restore JSON Backup</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Restore accounts, timers, subscriptions, tags, and custom presets from a previously exported AccountPulse JSON backup file without overwriting existing active items.
+          </p>
+        </div>
+
+        <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground cursor-pointer transition-colors">
+          <Upload className="w-4 h-4 text-primary" />
+          <span>Choose Backup JSON File to Restore...</span>
+          <input
+            type="file"
+            accept="application/json,.json"
+            onChange={handleRestoreFile}
+            className="hidden"
+          />
+        </label>
+      </div>
+    </div>
+  )
+}
+
 // ─── Security Tab ───────────────────────────────────────────────────────────────
 function SecurityTab() {
   const navigate = useNavigate()
@@ -850,6 +1007,7 @@ export default function Settings() {
     appearance:    <AppearanceTab />,
     notifications: <NotificationsTab />,
     presets:       <PresetsTab />,
+    backup:        <DataBackupTab user={user} />,
     security:      <SecurityTab />,
   }
 

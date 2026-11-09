@@ -11,6 +11,7 @@ import { addDuration, formatDuration, evaluateAccountStatus } from '@/lib/durati
 import { useNow } from '@/context/TimeContext'
 import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
 import { getAccountTags } from '@/lib/accountTags'
+import { exportAccountsCSV } from '@/lib/dataBackup'
 import {
   Search,
   Pencil,
@@ -30,6 +31,7 @@ import {
   Tag,
   CheckSquare,
   Square,
+  Download,
 } from 'lucide-react'
 
 function timeAgo(ts) {
@@ -636,6 +638,19 @@ export default function AccountsIndex() {
             {activity.length > 0 && (
               <span className="w-1.5 h-1.5 rounded-full bg-primary absolute top-1.5 right-1.5" />
             )}
+          </button>
+
+          {/* Export Accounts CSV Button (Icon-Only) */}
+          <button
+            type="button"
+            onClick={() => {
+              exportAccountsCSV(filteredAccounts)
+              addToast({ type: 'success', message: 'Accounts exported to CSV' })
+            }}
+            title="Export Accounts to CSV"
+            className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5" />
           </button>
 
           {/* Archived Accounts Link (Icon-Only) */}

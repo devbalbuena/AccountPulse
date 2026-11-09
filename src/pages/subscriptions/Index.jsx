@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
+import { exportSubscriptionsCSV } from '@/lib/dataBackup'
 import {
   Search,
   MoreVertical,
@@ -753,6 +754,16 @@ export default function SubscriptionsIndex() {
             {billingHistory.length > 0 && (
               <span className="w-1.5 h-1.5 rounded-full bg-primary absolute top-1.5 right-1.5" />
             )}
+          </button>
+
+          {/* Export Subscriptions CSV Button (Icon-Only) */}
+          <button
+            type="button"
+            onClick={() => exportSubscriptionsCSV(filteredSubs)}
+            title="Export Subscriptions to CSV"
+            className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5" />
           </button>
 
           {/* Archived Subscriptions Link (Icon-Only) */}
