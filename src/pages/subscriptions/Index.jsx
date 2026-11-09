@@ -588,14 +588,37 @@ export default function SubscriptionsIndex() {
 
   async function executeArchive() {
     if (!subToArchive) return
-    await supabase.from('subscriptions').update({ deleted_at: new Date().toISOString() }).eq('id', subToArchive.id)
+    const target = subToArchive
+    const prevSubs = subs
+
+    // Optimistic UI removal (0ms latency)
     setSubToArchive(null)
+    setSubs(prev => prev.filter(s => s.id !== target.id))
+
+    const { error } = await supabase
+      .from('subscriptions')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', target.id)
+
+    if (error) {
+      setSubs(prevSubs)
+      return
+    }
     load()
   }
 
   async function handleTogglePause(sub) {
     const newVal = sub.paused_at ? null : new Date().toISOString()
-    await supabase.from('subscriptions').update({ paused_at: newVal }).eq('id', sub.id)
+    const prevSubs = subs
+
+    // Optimistic UI update (0ms latency)
+    setSubs(prev => prev.map(s => (s.id === sub.id ? { ...s, paused_at: newVal } : s)))
+
+    const { error } = await supabase.from('subscriptions').update({ paused_at: newVal }).eq('id', sub.id)
+    if (error) {
+      setSubs(prevSubs)
+      return
+    }
     load()
   }
 

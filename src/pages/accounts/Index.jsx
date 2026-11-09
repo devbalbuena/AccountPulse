@@ -141,17 +141,39 @@ export default function AccountsIndex() {
     const { timer, account } = timerToSetRemaining
     const nowDate = new Date()
     const nextDue = addDuration(days, hours, minutes, nowDate)
+    const nextDueIso = nextDue.toISOString()
+    const nowIso = nowDate.toISOString()
+
+    // Optimistic UI update (0ms latency)
+    const prevAccounts = accounts
+    setTimerToSetRemaining(null)
+    setAccounts(prev =>
+      prev.map(acc =>
+        acc.id === account.id
+          ? {
+              ...acc,
+              token_timers: (acc.token_timers || []).map(t =>
+                t.id === timer.id
+                  ? { ...t, next_due_at: nextDueIso, last_refreshed_at: nowIso }
+                  : t
+              ),
+            }
+          : acc
+      )
+    )
 
     const { error } = await supabase
       .from('token_timers')
       .update({
-        next_due_at: nextDue.toISOString(),
-        last_refreshed_at: nowDate.toISOString(),
+        next_due_at: nextDueIso,
+        last_refreshed_at: nowIso,
       })
       .eq('id', timer.id)
 
     if (error) {
-      addToast({ type: 'error', message: `Failed to update timer: ${error.message}` })
+      // Auto-rollback on failure
+      setAccounts(prevAccounts)
+      addToast({ type: 'error', message: `Rolled back timer update: ${error.message}` })
       return
     }
 
@@ -164,7 +186,6 @@ export default function AccountsIndex() {
     await insertNotif(
       `${account.email} (${timer.model_name || 'Timer'}) remaining time set to ${formatDuration(totalMs)}`
     )
-    setTimerToSetRemaining(null)
     load()
   }
 
@@ -211,12 +232,26 @@ export default function AccountsIndex() {
 
   async function executeArchive() {
     if (!accountToArchive) return
-    await supabase
+    const target = accountToArchive
+    const prevAccounts = accounts
+
+    // Optimistic UI removal (0ms latency)
+    setAccountToArchive(null)
+    setAccounts(prev => prev.filter(a => a.id !== target.id))
+
+    const { error } = await supabase
       .from('accounts')
       .update({ deleted_at: new Date().toISOString() })
-      .eq('id', accountToArchive.id)
-    await insertNotif(`${accountToArchive.platform} account archived`)
-    setAccountToArchive(null)
+      .eq('id', target.id)
+
+    if (error) {
+      // Auto-rollback on failure
+      setAccounts(prevAccounts)
+      addToast({ type: 'error', message: `Rolled back archive: ${error.message}` })
+      return
+    }
+
+    await insertNotif(`${target.platform} account archived`)
     load()
   }
 
@@ -231,19 +266,40 @@ export default function AccountsIndex() {
     const nowDate = new Date()
     const cooldownMs = (timer.interval_hours || 0) * 3600000
     const nextDue = new Date(nowDate.getTime() + cooldownMs)
+    const nextDueIso = nextDue.toISOString()
+    const nowIso = nowDate.toISOString()
     const prevNextDueAt = timer.next_due_at
     const prevLastRefreshedAt = timer.last_refreshed_at
+
+    // Optimistic UI update (0ms latency)
+    const prevAccounts = accounts
+    setAccounts(prev =>
+      prev.map(acc =>
+        acc.id === account.id
+          ? {
+              ...acc,
+              token_timers: (acc.token_timers || []).map(t =>
+                t.id === timer.id
+                  ? { ...t, next_due_at: nextDueIso, last_refreshed_at: nowIso }
+                  : t
+              ),
+            }
+          : acc
+      )
+    )
 
     const { error } = await supabase
       .from('token_timers')
       .update({
-        last_refreshed_at: nowDate.toISOString(),
-        next_due_at: nextDue.toISOString(),
+        last_refreshed_at: nowIso,
+        next_due_at: nextDueIso,
       })
       .eq('id', timer.id)
 
     if (error) {
-      addToast({ type: 'error', message: `Failed to set cooldown: ${error.message}` })
+      // Auto-rollback on failure
+      setAccounts(prevAccounts)
+      addToast({ type: 'error', message: `Rolled back cooldown: ${error.message}` })
       return
     }
 
@@ -254,6 +310,21 @@ export default function AccountsIndex() {
       action: {
         label: 'Undo',
         onClick: async () => {
+          // Optimistic undo
+          setAccounts(prev =>
+            prev.map(acc =>
+              acc.id === account.id
+                ? {
+                    ...acc,
+                    token_timers: (acc.token_timers || []).map(t =>
+                      t.id === timer.id
+                        ? { ...t, next_due_at: prevNextDueAt, last_refreshed_at: prevLastRefreshedAt }
+                        : t
+                    ),
+                  }
+                : acc
+            )
+          )
           await supabase
             .from('token_timers')
             .update({

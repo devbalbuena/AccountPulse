@@ -139,19 +139,40 @@ export default function Dashboard() {
     const nowDate = new Date()
     const cooldownMs = (timer.interval_hours || 0) * 3600000
     const nextDue = new Date(nowDate.getTime() + cooldownMs)
+    const nextDueIso = nextDue.toISOString()
+    const nowIso = nowDate.toISOString()
     const prevNextDueAt = timer.next_due_at
     const prevLastRefreshedAt = timer.last_refreshed_at
+
+    // Optimistic UI update (0ms latency)
+    const prevAccounts = accounts
+    setAccounts(prev =>
+      prev.map(acc =>
+        acc.id === account.id
+          ? {
+              ...acc,
+              token_timers: (acc.token_timers || []).map(t =>
+                t.id === timer.id
+                  ? { ...t, next_due_at: nextDueIso, last_refreshed_at: nowIso }
+                  : t
+              ),
+            }
+          : acc
+      )
+    )
 
     const { error } = await supabase
       .from('token_timers')
       .update({
-        last_refreshed_at: nowDate.toISOString(),
-        next_due_at: nextDue.toISOString(),
+        last_refreshed_at: nowIso,
+        next_due_at: nextDueIso,
       })
       .eq('id', timer.id)
 
     if (error) {
-      addToast({ type: 'error', message: `Failed to start cooldown: ${error.message}` })
+      // Auto-rollback on failure
+      setAccounts(prevAccounts)
+      addToast({ type: 'error', message: `Rolled back cooldown: ${error.message}` })
       return
     }
 
@@ -162,6 +183,20 @@ export default function Dashboard() {
       action: {
         label: 'Undo',
         onClick: async () => {
+          setAccounts(prev =>
+            prev.map(acc =>
+              acc.id === account.id
+                ? {
+                    ...acc,
+                    token_timers: (acc.token_timers || []).map(t =>
+                      t.id === timer.id
+                        ? { ...t, next_due_at: prevNextDueAt, last_refreshed_at: prevLastRefreshedAt }
+                        : t
+                    ),
+                  }
+                : acc
+            )
+          )
           await supabase
             .from('token_timers')
             .update({
