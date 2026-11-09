@@ -14,6 +14,11 @@ import {
   requestBrowserPushPermission,
   sendBrowserNotification,
 } from '@/lib/browserNotifications'
+import {
+  getWebhookConfig,
+  saveWebhookConfig,
+  sendTestWebhook,
+} from '@/lib/webhookDispatcher'
 
 const TABS = [
   { id: 'profile',      label: 'Profile',       icon: User },
@@ -158,6 +163,25 @@ function NotificationsTab() {
   const [pushPermission, setPushPermission] = useState(() => getBrowserPushPermission())
   const [pushEnabled, setPushEnabled] = useState(() => isBrowserPushEnabled())
   const [pushTestMsg, setPushTestMsg] = useState('')
+  const [webhooks, setWebhooks] = useState(() => getWebhookConfig())
+  const [webhookStatus, setWebhookStatus] = useState('')
+
+  function handleWebhookChange(field, val) {
+    const next = { ...webhooks, [field]: val }
+    setWebhooks(next)
+    saveWebhookConfig(next)
+  }
+
+  async function handleTestWebhook(provider) {
+    setWebhookStatus(`Sending test ping to ${provider}...`)
+    const ok = await sendTestWebhook(provider, webhooks)
+    setWebhookStatus(
+      ok
+        ? `Test alert delivered to ${provider}!`
+        : `Failed to send ${provider} alert. Check your webhook URL or token.`
+    )
+    setTimeout(() => setWebhookStatus(''), 4000)
+  }
 
   async function handleToggleBrowserPush() {
     if (!pushSupported) return
@@ -332,6 +356,137 @@ function NotificationsTab() {
       <p className="text-xs px-1" style={{ color: 'var(--muted-foreground)' }}>
         Note: Notification preferences are persisted to your account and synced with the email alert service.
       </p>
+
+      {/* Webhook Alerts (Discord / Telegram / Slack) */}
+      <div className="p-5 rounded-xl border border-border bg-card shadow-xs space-y-4 mt-4">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Webhook Alerts (Discord / Telegram / Slack)</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Send instant alert pings to your personal Discord channel, Telegram bot, or Slack workspace when groups finish cooling down.
+            </p>
+          </div>
+          {webhookStatus && (
+            <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md">
+              {webhookStatus}
+            </span>
+          )}
+        </div>
+
+        {/* Discord Webhook */}
+        <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-foreground">Discord Webhook</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleTestWebhook('discord')}
+                disabled={!webhooks.discordUrl}
+                className="px-2.5 py-1 rounded-md border border-border bg-card text-[11px] font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+              >
+                Test Discord
+              </button>
+              <button
+                type="button"
+                onClick={() => handleWebhookChange('discordEnabled', !webhooks.discordEnabled)}
+                className="w-9 h-5 rounded-full transition-colors relative"
+                style={{ background: webhooks.discordEnabled ? 'var(--primary)' : 'var(--border)' }}
+              >
+                <span
+                  className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+                  style={{ transform: webhooks.discordEnabled ? 'translateX(17px)' : 'translateX(2px)' }}
+                />
+              </button>
+            </div>
+          </div>
+          <input
+            type="url"
+            placeholder="https://discord.com/api/webhooks/..."
+            value={webhooks.discordUrl}
+            onChange={e => handleWebhookChange('discordUrl', e.target.value)}
+            className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        {/* Telegram Bot */}
+        <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-foreground">Telegram Bot Alert</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleTestWebhook('telegram')}
+                disabled={!webhooks.telegramBotToken || !webhooks.telegramChatId}
+                className="px-2.5 py-1 rounded-md border border-border bg-card text-[11px] font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+              >
+                Test Telegram
+              </button>
+              <button
+                type="button"
+                onClick={() => handleWebhookChange('telegramEnabled', !webhooks.telegramEnabled)}
+                className="w-9 h-5 rounded-full transition-colors relative"
+                style={{ background: webhooks.telegramEnabled ? 'var(--primary)' : 'var(--border)' }}
+              >
+                <span
+                  className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+                  style={{ transform: webhooks.telegramEnabled ? 'translateX(17px)' : 'translateX(2px)' }}
+                />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input
+              type="text"
+              placeholder="Bot Token (123456:ABC-DEF...)"
+              value={webhooks.telegramBotToken}
+              onChange={e => handleWebhookChange('telegramBotToken', e.target.value)}
+              className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <input
+              type="text"
+              placeholder="Chat ID (e.g. 987654321)"
+              value={webhooks.telegramChatId}
+              onChange={e => handleWebhookChange('telegramChatId', e.target.value)}
+              className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        {/* Slack Webhook */}
+        <div className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-foreground">Slack Incoming Webhook</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleTestWebhook('slack')}
+                disabled={!webhooks.slackUrl}
+                className="px-2.5 py-1 rounded-md border border-border bg-card text-[11px] font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+              >
+                Test Slack
+              </button>
+              <button
+                type="button"
+                onClick={() => handleWebhookChange('slackEnabled', !webhooks.slackEnabled)}
+                className="w-9 h-5 rounded-full transition-colors relative"
+                style={{ background: webhooks.slackEnabled ? 'var(--primary)' : 'var(--border)' }}
+              >
+                <span
+                  className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+                  style={{ transform: webhooks.slackEnabled ? 'translateX(17px)' : 'translateX(2px)' }}
+                />
+              </button>
+            </div>
+          </div>
+          <input
+            type="url"
+            placeholder="https://hooks.slack.com/services/..."
+            value={webhooks.slackUrl}
+            onChange={e => handleWebhookChange('slackUrl', e.target.value)}
+            className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
     </div>
   )
 }

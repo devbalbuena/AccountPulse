@@ -1,5 +1,6 @@
 import { evaluateAccountStatus } from './durationUtils'
 import { sendBrowserNotification } from './browserNotifications'
+import { dispatchReadyWebhook } from './webhookDispatcher'
 
 // Module-level map tracking the last observed state of each group: `${acc.id}:${groupName}` -> 'ready' | 'cooldown'
 const groupStates = new Map()
@@ -47,6 +48,11 @@ export function checkGroupReadyTransitions(accounts = [], now = Date.now(), addT
         sendBrowserNotification(`AccountPulse — ${group.groupName} Ready!`, {
           body: `${acc.email} (${acc.platform || 'AI'}) cooldown finished and is ready to use.`,
           tag: groupKey,
+        })
+        dispatchReadyWebhook({
+          email: acc.email,
+          platform: acc.platform,
+          groupName: group.groupName,
         })
       } else if (!group.isReady && prevState === 'ready') {
         // Re-armed when user drains the group or sets a timer
