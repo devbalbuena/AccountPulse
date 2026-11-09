@@ -28,6 +28,8 @@ import {
   X,
   ArrowUpDown,
   Tag,
+  CheckSquare,
+  Square,
 } from 'lucide-react'
 
 function timeAgo(ts) {
@@ -109,6 +111,9 @@ export default function AccountsIndex() {
   const [editingAccount, setEditingAccount] = useState(null)
   const [timerToSetRemaining, setTimerToSetRemaining] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedAccountIds, setSelectedAccountIds] = useState([])
+  const [batchTimeOpen, setBatchTimeOpen] = useState(false)
 
   const now = useNow()
   const { addToast } = useToast()
@@ -266,6 +271,112 @@ export default function AccountsIndex() {
 
   async function handleModalSave(email, isEdit) {
     await insertNotif(isEdit ? `${email} account updated` : `${email} account added`)
+    load()
+  }
+
+  function toggleSelectAccount(id) {
+    setSelectedAccountIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  async function handleBatchDrainSelected(targetAccounts = null) {
+    const list =
+      targetAccounts ||
+      accounts.filter(a => selectedAccountIds.includes(a.id))
+    if (list.length === 0) return
+
+    const nowDate = new Date()
+    let drainedTimersCount = 0
+
+    for (const acc of list) {
+      const timers = (acc.token_timers || []).filter(t => !t.deleted_at && (t.interval_hours || 0) > 0)
+      for (const timer of timers) {
+        const dueMs = timer.next_due_at ? new Date(timer.next_due_at).getTime() : 0
+        if (dueMs <= now) {
+          const nextDue = new Date(nowDate.getTime() + timer.interval_hours * 3600000)
+          await supabase
+            .from('token_timers')
+            .update({
+              last_refreshed_at: nowDate.toISOString(),
+              next_due_at: nextDue.toISOString(),
+            })
+            .eq('id', timer.id)
+          drainedTimersCount++
+        }
+      }
+    }
+
+    if (drainedTimersCount === 0) {
+      addToast({ type: 'info', message: 'No ready timers with intervals found in selection.' })
+      return
+    }
+
+    addToast({
+      type: 'success',
+      message: `Batch drained ${drainedTimersCount} ready timer(s) across ${list.length} account(s)`,
+    })
+    await insertNotif(`Batch drained ${drainedTimersCount} timer(s) across ${list.length} accounts`)
+    load()
+  }
+
+  async function handleBatchSaveRemainingTime({ days, hours, minutes }) {
+    const list = accounts.filter(a => selectedAccountIds.includes(a.id))
+    if (list.length === 0) return
+    const nowDate = new Date()
+    const nextDue = addDuration(days, hours, minutes, nowDate)
+    const timerIds = list.flatMap(a => (a.token_timers || []).filter(t => !t.deleted_at).map(t => t.id))
+
+    if (timerIds.length === 0) {
+      addToast({ type: 'info', message: 'Selected accounts have no active timers.' })
+      setBatchTimeOpen(false)
+      return
+    }
+
+    const { error } = await supabase
+      .from('token_timers')
+      .update({
+        next_due_at: nextDue.toISOString(),
+        last_refreshed_at: nowDate.toISOString(),
+      })
+      .in('id', timerIds)
+
+    if (error) {
+      addToast({ type: 'error', message: error.message })
+      return
+    }
+
+    const totalMs = ((days * 24 + hours) * 60 + minutes) * 60 * 1000
+    addToast({
+      type: 'success',
+      message: `Set ${formatDuration(totalMs)} remaining time across ${timerIds.length} timer(s)`,
+    })
+    await insertNotif(`Batch set remaining time (${formatDuration(totalMs)}) for ${list.length} accounts`)
+    setBatchTimeOpen(false)
+    load()
+  }
+
+  async function handleBatchArchiveSelected() {
+    if (selectedAccountIds.length === 0) return
+    if (!confirm(`Archive ${selectedAccountIds.length} selected account(s)?`)) return
+
+    const { error } = await supabase
+      .from('accounts')
+      .update({ deleted_at: new Date().toISOString() })
+      .in('id', selectedAccountIds)
+
+    if (error) {
+      addToast({ type: 'error', message: error.message })
+      return
+    }
+
+    addToast({
+      type: 'success',
+      message: `Archived ${selectedAccountIds.length} account(s)`,
+    })
+    await insertNotif(`Batch archived ${selectedAccountIds.length} accounts`)
+    setSelectedAccountIds([])
+    setSelectMode(false)
     load()
   }
 
@@ -495,6 +606,25 @@ export default function AccountsIndex() {
             </button>
           </div>
 
+          {/* Batch Multi-Select Mode Toggle (Icon-Only) */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectMode(prev => {
+                if (prev) setSelectedAccountIds([])
+                return !prev
+              })
+            }}
+            title="Toggle Batch Select Mode"
+            className={`p-2 rounded-lg border transition-colors shadow-xs ${
+              selectMode || selectedAccountIds.length > 0
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+          </button>
+
           {/* Activity Drawer Button (Icon-Only) */}
           <button
             type="button"
@@ -609,6 +739,63 @@ export default function AccountsIndex() {
         </div>
       )}
 
+      {/* ── Batch / Bulk Actions Bar ── */}
+      {(selectMode || selectedAccountIds.length > 0) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-primary/30 bg-primary/5 shadow-xs shrink-0">
+          <div className="flex items-center gap-2.5 text-xs">
+            <span className="font-bold text-foreground tabular-nums">
+              {selectedAccountIds.length} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedAccountIds(filteredAccounts.map(a => a.id))}
+              className="font-semibold text-primary hover:underline"
+            >
+              Select All ({filteredAccounts.length})
+            </button>
+            {selectedAccountIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedAccountIds([])}
+                className="font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              disabled={selectedAccountIds.length === 0}
+              onClick={() => handleBatchDrainSelected()}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground disabled:opacity-40 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-primary" />
+              <span>Drain All Ready</span>
+            </button>
+            <button
+              type="button"
+              disabled={selectedAccountIds.length === 0}
+              onClick={() => setBatchTimeOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground disabled:opacity-40 transition-colors"
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Set Common Time</span>
+            </button>
+            <button
+              type="button"
+              disabled={selectedAccountIds.length === 0}
+              onClick={handleBatchArchiveSelected}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/70 dark:bg-red-950/30 hover:bg-red-100/80 text-xs font-semibold text-red-600 dark:text-red-400 disabled:opacity-40 transition-colors"
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span>Batch Archive</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Full-Width Accounts Content grouped by Unified AI Platform Category ── */}
       <div
         className={`transition-all duration-300 flex-1 min-h-0 space-y-6 ${
@@ -662,6 +849,17 @@ export default function AccountsIndex() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {groupReadyCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleBatchDrainSelected(items)}
+                        title="Drain all ready timers in this category"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-border bg-muted/40 hover:bg-muted text-foreground transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3 text-primary" />
+                        <span className="hidden sm:inline">Drain Group</span>
+                      </button>
+                    )}
                     <span
                       className="px-2.5 py-0.5 rounded-full text-xs font-semibold border tabular-nums"
                       style={{
@@ -691,6 +889,20 @@ export default function AccountsIndex() {
                           {/* Card Top Row: Email-First (Full Readable Handle) + Icon Actions */}
                           <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border">
                             <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              {(selectMode || selectedAccountIds.length > 0) && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSelectAccount(acc.id)}
+                                  className="text-primary shrink-0 mr-0.5"
+                                  title="Select account for batch action"
+                                >
+                                  {selectedAccountIds.includes(acc.id) ? (
+                                    <CheckSquare className="w-4 h-4 text-primary" />
+                                  ) : (
+                                    <Square className="w-4 h-4 text-muted-foreground" />
+                                  )}
+                                </button>
+                              )}
                               <span
                                 className={`w-2 h-2 rounded-full shrink-0 ${
                                   accountStatus.hasTimers === false
@@ -1148,6 +1360,13 @@ export default function AccountsIndex() {
         onClose={() => setTimerToSetRemaining(null)}
         timer={timerToSetRemaining?.timer}
         onSave={handleSaveRemainingTime}
+      />
+
+      <SetRemainingTimeModal
+        isOpen={batchTimeOpen}
+        onClose={() => setBatchTimeOpen(false)}
+        timer={{ model_name: `${selectedAccountIds.length} Selected Account(s)` }}
+        onSave={handleBatchSaveRemainingTime}
       />
     </div>
   )
