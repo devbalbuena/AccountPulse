@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ImageIcon, Plus, Trash2, Clock, AlertTriangle, Sparkles, Bell, BookmarkPlus } from 'lucide-react'
+import { ImageIcon, Plus, Trash2, Clock, AlertTriangle, Sparkles, Bell, BookmarkPlus, Tag, X } from 'lucide-react'
 import { TIMER_PRESETS, ANTIGRAVITY_4_PRESETS, createTimerFromPreset, getAllTimerPresets, saveCustomPreset } from '@/lib/timerPresets'
 import { AI_PLATFORM_CATALOG, resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
+import { SUGGESTED_TAGS, getAccountTags, setAccountTags, syncTagsIntoNotes, stripHashtagsFromNotes, normalizeTag } from '@/lib/accountTags'
 
 const inputCls = "w-full px-3.5 py-2.5 rounded-lg text-sm bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
 const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5"
@@ -128,6 +129,8 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
   const [iconPreview, setIconPreview] = useState('')
   const [availablePresets, setAvailablePresets] = useState(() => getAllTimerPresets())
   const [savedPresetFeedback, setSavedPresetFeedback] = useState(null)
+  const [tags, setTags] = useState([])
+  const [tagInput, setTagInput] = useState('')
 
   useEffect(() => {
     if (!isOpen) return
@@ -137,8 +140,9 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
         email: account.email,
         platform: account.platform,
         type: account.type,
-        notes: account.notes || ''
+        notes: stripHashtagsFromNotes(account.notes || '')
       })
+      setTags(getAccountTags(account))
       setIconPreview(account.icon_url || '')
 
       if (account.token_timers && account.token_timers.length > 0) {
@@ -168,10 +172,23 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
       setForm({ email: '', platform: '', type: '', notes: '' })
       setIconPreview('')
       setTimers([emptyTimer()])
+      setTags([])
     }
+    setTagInput('')
     setIconFile(null)
     setError('')
   }, [isOpen, account])
+
+  function handleAddTag(rawTag) {
+    const clean = normalizeTag(rawTag)
+    if (!clean) return
+    setTags(prev => (prev.includes(clean) ? prev : [...prev, clean]))
+    setTagInput('')
+  }
+
+  function handleRemoveTag(t) {
+    setTags(prev => prev.filter(x => x !== t))
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -183,20 +200,22 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
     const cleanEmail = form.email.trim()
     const cleanPlatform = unified.name
     const cleanType = (form.type || '').trim() || unified.category
+    const combinedNotes = syncTagsIntoNotes(form.notes, tags)
 
     // ── 1. Upsert the account row ──
     if (account) {
       const { error: accErr } = await supabase.from('accounts')
-        .update({ email: cleanEmail, platform: cleanPlatform, type: cleanType, notes: form.notes || null })
+        .update({ email: cleanEmail, platform: cleanPlatform, type: cleanType, notes: combinedNotes || null })
         .eq('id', accId)
       if (accErr) { setError(accErr.message); setLoading(false); return }
     } else {
       const { data: newAcc, error: accErr } = await supabase.from('accounts')
-        .insert({ user_id: user.id, email: cleanEmail, platform: cleanPlatform, type: cleanType, notes: form.notes || null })
+        .insert({ user_id: user.id, email: cleanEmail, platform: cleanPlatform, type: cleanType, notes: combinedNotes || null })
         .select().single()
       if (accErr) { setError(accErr.message); setLoading(false); return }
       accId = newAcc.id
     }
+    setAccountTags(accId, tags)
 
     // ── 2. Handle icon ──
     if (iconFile) {
@@ -420,6 +439,76 @@ export default function AccountModal({ isOpen, onClose, account, onSave }) {
                   }} />
                 </label>
               </div>
+            </div>
+          </div>
+
+          {/* Custom Tags */}
+          <div>
+            <label className={labelCls}>
+              Account Tags <span className="font-normal text-muted-foreground">(e.g. #Work, #Personal, #Team-A)</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {SUGGESTED_TAGS.map(st => {
+                const active = tags.includes(st)
+                return (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => (active ? handleRemoveTag(st) : handleAddTag(st))}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-colors ${
+                      active
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Tag className="w-2.5 h-2.5" />
+                    <span>#{st}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {tags.map(t => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold border border-primary/20"
+                  >
+                    <span>#{t}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(t)}
+                      className="hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Type custom tag (e.g. Client-X) and press Add..."
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddTag(tagInput)
+                  }
+                }}
+                className={`${inputCls} py-1.5 text-xs flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => handleAddTag(tagInput)}
+                className="px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-xs font-semibold text-foreground"
+              >
+                + Tag
+              </button>
             </div>
           </div>
 

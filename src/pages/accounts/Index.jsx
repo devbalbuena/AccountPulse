@@ -10,6 +10,7 @@ import SetRemainingTimeModal from '@/components/SetRemainingTimeModal'
 import { addDuration, formatDuration, evaluateAccountStatus } from '@/lib/durationUtils'
 import { useNow } from '@/context/TimeContext'
 import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
+import { getAccountTags } from '@/lib/accountTags'
 import {
   Search,
   Pencil,
@@ -26,6 +27,7 @@ import {
   History,
   X,
   ArrowUpDown,
+  Tag,
 } from 'lucide-react'
 
 function timeAgo(ts) {
@@ -99,6 +101,7 @@ export default function AccountsIndex() {
   const [clearActivityOpen, setClearActivityOpen] = useState(false)
   const [platformFilter, setPlatformFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'ready' | 'cooldown'
+  const [selectedTags, setSelectedTags] = useState([])
   const [sortBy, setSortBy] = useState('soonest')
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('ap-accounts-view') || 'grid')
   const [activityOpen, setActivityOpen] = useState(false)
@@ -308,16 +311,34 @@ export default function AccountsIndex() {
 
   const unifiedPlatformCategories = Array.from(platformSummaryMap.values())
 
+  // Collect all unique tags across accounts
+  const allTagCounts = new Map()
+  accounts.forEach(a => {
+    getAccountTags(a).forEach(t => {
+      allTagCounts.set(t, (allTagCounts.get(t) || 0) + 1)
+    })
+  })
+  const availableTags = Array.from(allTagCounts.entries()).map(([tag, count]) => ({ tag, count }))
+
+  function toggleTagFilter(tag) {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    )
+  }
+
   const filteredAccounts = accounts
     .filter(acc => {
       const unified = resolveUnifiedPlatform(acc.platform, acc.type, accounts, acc.icon_url)
+      const accTags = getAccountTags(acc)
       const q = searchQuery.toLowerCase()
       const matchesSearch =
         acc.email.toLowerCase().includes(q) ||
         unified.name.toLowerCase().includes(q) ||
-        unified.category.toLowerCase().includes(q)
+        unified.category.toLowerCase().includes(q) ||
+        accTags.some(t => t.toLowerCase().includes(q.replace(/^#/, '')))
       if (!matchesSearch) return false
       if (platformFilter !== 'All' && unified.key !== platformFilter) return false
+      if (selectedTags.length > 0 && !selectedTags.every(st => accTags.includes(st))) return false
 
       if (statusFilter !== 'all') {
         const { isReady, hasTimers } = evaluateAccountStatus(acc, now)
@@ -552,6 +573,42 @@ export default function AccountsIndex() {
         </div>
       )}
 
+      {/* ── Custom Account Tags Multi-Filter Bar ── */}
+      {availableTags.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground mr-1 shrink-0">
+            <Tag className="w-3 h-3" /> Tags:
+          </span>
+          {availableTags.map(({ tag, count }) => {
+            const active = selectedTags.includes(tag)
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTagFilter(tag)}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-all shrink-0 ${
+                  active
+                    ? 'border-primary bg-primary text-primary-foreground shadow-xs'
+                    : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <span>#{tag}</span>
+                <span className="opacity-75 text-[10px]">({count})</span>
+              </button>
+            )
+          })}
+          {selectedTags.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedTags([])}
+              className="text-[11px] font-semibold text-primary hover:underline ml-1 shrink-0"
+            >
+              Clear tags
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── Full-Width Accounts Content grouped by Unified AI Platform Category ── */}
       <div
         className={`transition-all duration-300 flex-1 min-h-0 space-y-6 ${
@@ -677,6 +734,31 @@ export default function AccountsIndex() {
                               />
                             </div>
                           </div>
+
+                          {/* Custom Account Tags Row (if any) */}
+                          {(() => {
+                            const accTags = getAccountTags(acc)
+                            if (accTags.length === 0) return null
+                            return (
+                              <div className="flex flex-wrap gap-1 pt-2">
+                                {accTags.map(t => (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => toggleTagFilter(t)}
+                                    className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border transition-colors ${
+                                      selectedTags.includes(t)
+                                        ? 'border-primary bg-primary/15 text-primary'
+                                        : 'border-border bg-muted/50 text-muted-foreground hover:text-foreground'
+                                    }`}
+                                    title={`Filter by #${t}`}
+                                  >
+                                    #{t}
+                                  </button>
+                                ))}
+                              </div>
+                            )
+                          })()}
 
                           {/* Model Timer Groups (Single Status Badge per Group + Icon-Only Controls) */}
                           {groups.length === 0 ? (
