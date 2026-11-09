@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
 import { exportSubscriptionsCSV } from '@/lib/dataBackup'
+import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import {
   SUPPORTED_CURRENCIES,
   getSavedRates,
@@ -498,12 +499,19 @@ export default function SubscriptionsIndex() {
   }
 
   const load = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
       .is('deleted_at', null)
       .eq('user_id', user.id)
       .order('next_billing_date', { ascending: true })
+
+    if (error) {
+      setSubs(loadOfflineCache('subscriptions', []))
+      setLoading(false)
+      setTimeout(() => setIsLoaded(true), 60)
+      return
+    }
 
     if (data && data.length > 0) {
       let changed = false
@@ -526,11 +534,14 @@ export default function SubscriptionsIndex() {
       if (changed) {
         updatedData.sort((a, b) => new Date(a.next_billing_date) - new Date(b.next_billing_date))
         setSubs(updatedData)
+        saveOfflineCache('subscriptions', updatedData)
       } else {
         setSubs(data)
+        saveOfflineCache('subscriptions', data)
       }
     } else {
       setSubs(data || [])
+      saveOfflineCache('subscriptions', data || [])
     }
     setLoading(false)
     setTimeout(() => setIsLoaded(true), 60)

@@ -1,0 +1,19 @@
+{
+  "name": "AccountPulse — AI Quota & Subscription Command Center",
+  "short_name": "AccountPulse",
+  "description": "Track AI model quota cooldown timers, account rotations, and recurring subscriptions with real-time precision.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

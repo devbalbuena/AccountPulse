@@ -13,6 +13,7 @@ import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCateg
 import { getAccountTags } from '@/lib/accountTags'
 import { exportAccountsCSV } from '@/lib/dataBackup'
 import { recordRotationEvent } from '@/lib/rotationAnalytics'
+import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import {
   Search,
   Pencil,
@@ -168,24 +169,32 @@ export default function AccountsIndex() {
   }
 
   const load = useCallback(async () => {
-    const [{ data: acc }, { data: notifs }] = await Promise.all([
-      supabase
-        .from('accounts')
-        .select('*, token_timers(*)')
-        .is('deleted_at', null)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(15),
-    ])
-    setAccounts(acc || [])
-    setActivity(notifs || [])
-    setLoading(false)
-    setTimeout(() => setIsLoaded(true), 60)
+    try {
+      const [{ data: acc, error: accErr }, { data: notifs }] = await Promise.all([
+        supabase
+          .from('accounts')
+          .select('*, token_timers(*)')
+          .is('deleted_at', null)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(15),
+      ])
+      if (accErr) throw accErr
+      const safeAcc = acc || []
+      setAccounts(safeAcc)
+      setActivity(notifs || [])
+      saveOfflineCache('accounts', safeAcc)
+    } catch {
+      setAccounts(loadOfflineCache('accounts', []))
+    } finally {
+      setLoading(false)
+      setTimeout(() => setIsLoaded(true), 60)
+    }
   }, [user])
 
   useEffect(() => {

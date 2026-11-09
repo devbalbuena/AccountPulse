@@ -5,8 +5,11 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { ToastProvider } from '@/context/ToastContext'
 import { TimeProvider } from '@/context/TimeContext'
+import { registerServiceWorker } from '@/lib/pwaOfflineCache'
 import App from './App.jsx'
 import './index.css'
+
+registerServiceWorker()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -7,6 +7,7 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import { evaluateAccountStatus, formatDuration } from '@/lib/durationUtils'
 import { useNow } from '@/context/TimeContext'
 import { resolveUnifiedPlatform, UnifiedPlatformIcon } from '@/lib/platformCategories'
+import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
 import {
   Layers,
   Clock,
@@ -86,30 +87,44 @@ export default function Dashboard() {
   const { addToast } = useToast()
 
   const load = useCallback(async () => {
-    const [{ data: acc }, { data: subs }, { count: accCount }] = await Promise.all([
-      supabase
-        .from('accounts')
-        .select('*, token_timers(*)')
-        .is('deleted_at', null)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('subscriptions')
-        .select('*')
-        .is('deleted_at', null)
-        .eq('user_id', user.id)
-        .order('next_billing_date', { ascending: true }),
-      supabase
-        .from('accounts')
-        .select('*', { count: 'exact', head: true })
-        .is('deleted_at', null)
-        .eq('user_id', user.id),
-    ])
-    setAccounts(acc || [])
-    setSubscriptions(subs || [])
-    setTotalAccounts(accCount || 0)
-    setLoading(false)
-    setTimeout(() => setIsLoaded(true), 60)
+    try {
+      const [{ data: acc, error: accErr }, { data: subs, error: subErr }, { count: accCount }] = await Promise.all([
+        supabase
+          .from('accounts')
+          .select('*, token_timers(*)')
+          .is('deleted_at', null)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('subscriptions')
+          .select('*')
+          .is('deleted_at', null)
+          .eq('user_id', user.id)
+          .order('next_billing_date', { ascending: true }),
+        supabase
+          .from('accounts')
+          .select('*', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .eq('user_id', user.id),
+      ])
+      if (accErr || subErr) throw accErr || subErr
+      const safeAcc = acc || []
+      const safeSubs = subs || []
+      setAccounts(safeAcc)
+      setSubscriptions(safeSubs)
+      setTotalAccounts(accCount ?? safeAcc.length)
+      saveOfflineCache('accounts', safeAcc)
+      saveOfflineCache('subscriptions', safeSubs)
+    } catch {
+      const cachedAcc = loadOfflineCache('accounts', [])
+      const cachedSubs = loadOfflineCache('subscriptions', [])
+      setAccounts(cachedAcc)
+      setSubscriptions(cachedSubs)
+      setTotalAccounts(cachedAcc.length)
+    } finally {
+      setLoading(false)
+      setTimeout(() => setIsLoaded(true), 60)
+    }
   }, [user])
 
   useEffect(() => {

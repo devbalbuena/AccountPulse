@@ -65,14 +65,23 @@ export default function AppLayout() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine)
   const notifRef = useRef(null)
   const profileRef = useRef(null)
   const accountsRef = useRef([])
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, [])
 
   // Global Ctrl+K / Cmd+K shortcut for Command Palette
@@ -464,6 +473,18 @@ export default function AppLayout() {
             </div>
           </div>
         </header>
+
+        {/* Offline PWA Cache Banner */}
+        {isOffline && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="px-4 py-1.5 bg-amber-500/15 border-b border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-center justify-center gap-2"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            <span>Offline Mode — Displaying cached accounts &amp; live local countdown timers</span>
+          </div>
+        )}
 
         {/* Main content */}
         <main className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar">
