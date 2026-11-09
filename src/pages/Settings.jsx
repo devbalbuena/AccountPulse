@@ -6,6 +6,14 @@ import { supabase } from '@/lib/supabase'
 import { Sun, Moon, User, Palette, Bell, ShieldCheck, Check, Laptop, LogOut } from 'lucide-react'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
+import {
+  isBrowserPushSupported,
+  getBrowserPushPermission,
+  isBrowserPushEnabled,
+  setBrowserPushEnabled,
+  requestBrowserPushPermission,
+  sendBrowserNotification,
+} from '@/lib/browserNotifications'
 
 const TABS = [
   { id: 'profile',      label: 'Profile',       icon: User },
@@ -146,6 +154,48 @@ function NotificationsTab() {
     account_added: false,
     weekly_summary: false,
   })
+  const [pushSupported] = useState(() => isBrowserPushSupported())
+  const [pushPermission, setPushPermission] = useState(() => getBrowserPushPermission())
+  const [pushEnabled, setPushEnabled] = useState(() => isBrowserPushEnabled())
+  const [pushTestMsg, setPushTestMsg] = useState('')
+
+  async function handleToggleBrowserPush() {
+    if (!pushSupported) return
+    if (pushPermission !== 'granted') {
+      const perm = await requestBrowserPushPermission()
+      setPushPermission(perm)
+      setPushEnabled(perm === 'granted')
+      if (perm === 'granted') {
+        sendBrowserNotification('AccountPulse Notifications Enabled', {
+          body: 'You will now receive native desktop/mobile alerts when cooldown timers hit zero.',
+        })
+      }
+      return
+    }
+    const next = !pushEnabled
+    setBrowserPushEnabled(next)
+    setPushEnabled(next)
+  }
+
+  async function handleSendTestBrowserPush() {
+    if (pushPermission !== 'granted') {
+      const perm = await requestBrowserPushPermission()
+      setPushPermission(perm)
+      if (perm !== 'granted') {
+        setPushTestMsg('Browser notification permission was denied or dismissed.')
+        return
+      }
+      setPushEnabled(true)
+    }
+    setBrowserPushEnabled(true)
+    setPushEnabled(true)
+    const sent = sendBrowserNotification('AccountPulse — Test Alert', {
+      body: 'Desktop & mobile push notifications are working!',
+      tag: 'ap-test-notif',
+    })
+    setPushTestMsg(sent ? 'Test push notification sent to your OS!' : 'Could not trigger browser notification.')
+    setTimeout(() => setPushTestMsg(''), 3500)
+  }
 
   useEffect(() => {
     if (!user) return
@@ -194,7 +244,68 @@ function NotificationsTab() {
   ]
 
   return (
-    <div className="space-y-3 max-w-lg">
+    <div className="space-y-4 max-w-2xl">
+      {/* Browser Native Push Notifications Card */}
+      <div
+        className="p-5 rounded-xl border border-border bg-card shadow-xs space-y-3"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-bold text-foreground">Browser Native Push Notifications</p>
+              <span
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                  !pushSupported
+                    ? 'bg-muted text-muted-foreground border-border'
+                    : pushPermission === 'granted' && pushEnabled
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                      : pushPermission === 'denied'
+                        ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border-red-200'
+                        : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200'
+                }`}
+              >
+                {!pushSupported
+                  ? 'Unsupported'
+                  : pushPermission === 'granted' && pushEnabled
+                    ? 'Active'
+                    : pushPermission === 'denied'
+                      ? 'Blocked in Browser'
+                      : 'Permission Needed'}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Trigger native OS desktop and mobile push notifications when a cooldown timer hits zero—even when you are on another browser tab.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={!pushSupported}
+            onClick={handleToggleBrowserPush}
+            className="shrink-0 w-10 h-6 rounded-full transition-colors relative disabled:opacity-40"
+            style={{ background: pushEnabled && pushPermission === 'granted' ? 'var(--primary)' : 'var(--border)' }}
+          >
+            <span
+              className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+              style={{ transform: pushEnabled && pushPermission === 'granted' ? 'translateX(18px)' : 'translateX(2px)' }}
+            />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-border/60 gap-2 flex-wrap">
+          <span className="text-[11px] text-muted-foreground">
+            {pushTestMsg || 'Uses Web Notifications API with background tab support'}
+          </span>
+          <button
+            type="button"
+            onClick={handleSendTestBrowserPush}
+            className="px-3 py-1.5 rounded-lg border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground transition-colors"
+          >
+            Send Test Push
+          </button>
+        </div>
+      </div>
+
       {rows.map(row => (
         <div
           key={row.key}

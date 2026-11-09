@@ -1,4 +1,5 @@
 import { evaluateAccountStatus } from './durationUtils'
+import { sendBrowserNotification } from './browserNotifications'
 
 // Module-level map tracking the last observed state of each group: `${acc.id}:${groupName}` -> 'ready' | 'cooldown'
 const groupStates = new Map()
@@ -42,6 +43,10 @@ export function checkGroupReadyTransitions(accounts = [], now = Date.now(), addT
         addToast({
           type: 'ready',
           message: `${acc.email} — ${group.groupName} quota is ready to use!`
+        })
+        sendBrowserNotification(`AccountPulse — ${group.groupName} Ready!`, {
+          body: `${acc.email} (${acc.platform || 'AI'}) cooldown finished and is ready to use.`,
+          tag: groupKey,
         })
       } else if (!group.isReady && prevState === 'ready') {
         // Re-armed when user drains the group or sets a timer
