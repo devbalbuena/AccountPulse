@@ -6,6 +6,16 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
 import { exportSubscriptionsCSV } from '@/lib/dataBackup'
 import {
+  SUPPORTED_CURRENCIES,
+  getSavedRates,
+  refreshLiveExchangeRates,
+  convertAmount,
+  getPreferredDisplayCurrency,
+  setPreferredDisplayCurrency,
+  getRenewalReminderDays,
+  setRenewalReminderDays,
+} from '@/lib/currencyConverter'
+import {
   Search,
   MoreVertical,
   Pencil,
@@ -462,6 +472,26 @@ export default function SubscriptionsIndex() {
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('ap-sub-view') || 'grid')
   const [subToArchive, setSubToArchive] = useState(null)
 
+  // Multi-Currency Converter & Renewal Reminder Window
+  const [rates, setRates] = useState(() => getSavedRates())
+  const [displayCurrency, setDisplayCurrency] = useState(() => getPreferredDisplayCurrency('PHP'))
+  const [reminderDays, setReminderDays] = useState(() => getRenewalReminderDays())
+
+  useEffect(() => {
+    refreshLiveExchangeRates().then(updated => setRates(updated))
+  }, [])
+
+  function handleDisplayCurrencyChange(cur) {
+    setDisplayCurrency(cur)
+    setPreferredDisplayCurrency(cur)
+  }
+
+  function handleReminderDaysChange(days) {
+    const n = parseInt(days, 10)
+    setReminderDays(n)
+    setRenewalReminderDays(n)
+  }
+
   function toggleView(mode) {
     setViewMode(mode)
     localStorage.setItem('ap-sub-view', mode)
@@ -585,12 +615,15 @@ export default function SubscriptionsIndex() {
   const pausedSubsList = subs.filter(s => !!s.paused_at)
   const dueSoonSubsList = subs.filter(s => {
     const d = daysUntil(s.next_billing_date)
-    return d !== null && d >= 0 && d <= 7
+    return d !== null && d >= 0 && d <= reminderDays
   })
 
-  // Total monthly spend calculation
-  const totalMonthlySpend = activeSubsList.reduce((sum, s) => sum + parseFloat(s.amount || 0), 0)
-  const primaryCurrency = activeSubsList[0]?.currency || subs[0]?.currency || 'PHP'
+  // Total monthly spend calculation converted into unified displayCurrency
+  const primaryCurrency = displayCurrency || activeSubsList[0]?.currency || subs[0]?.currency || 'PHP'
+  const totalMonthlySpend = activeSubsList.reduce(
+    (sum, s) => sum + convertAmount(s.amount || 0, s.currency || 'PHP', primaryCurrency, rates),
+    0
+  )
   const annualizedSpend = totalMonthlySpend * 12
 
   // Next renewal
@@ -613,7 +646,7 @@ export default function SubscriptionsIndex() {
 
     if (statusFilter === 'Due Soon') {
       const d = daysUntil(sub.next_billing_date)
-      if (!(d !== null && d >= 0 && d <= 7)) return false
+      if (!(d !== null && d >= 0 && d <= reminderDays)) return false
     } else if (statusFilter === 'Paused') {
       if (!sub.paused_at) return false
     }
@@ -689,6 +722,32 @@ export default function SubscriptionsIndex() {
               className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
             />
           </div>
+
+          {/* Live Currency Converter Switcher */}
+          <select
+            value={primaryCurrency}
+            onChange={e => handleDisplayCurrencyChange(e.target.value)}
+            title="Convert all totals into selected currency"
+            className="text-xs font-semibold rounded-lg px-2.5 py-1.5 border border-border bg-card text-foreground focus:outline-none cursor-pointer"
+          >
+            {SUPPORTED_CURRENCIES.map(cur => (
+              <option key={cur} value={cur}>
+                {cur} (Convert)
+              </option>
+            ))}
+          </select>
+
+          {/* Renewal Reminder Window Selector (1d / 3d / 7d) */}
+          <select
+            value={reminderDays}
+            onChange={e => handleReminderDaysChange(e.target.value)}
+            title="Configure renewal reminder alert threshold"
+            className="text-xs rounded-lg px-2.5 py-1.5 border border-border bg-card text-foreground focus:outline-none cursor-pointer"
+          >
+            <option value={1}>Remind: 1d before</option>
+            <option value={3}>Remind: 3d before</option>
+            <option value={7}>Remind: 7d before</option>
+          </select>
 
           {/* Sort Select */}
           <select
@@ -813,6 +872,27 @@ export default function SubscriptionsIndex() {
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* ── Renewal Reminder Alert Banner (1-day / 3-day Configurable Threshold) ── */}
+      {dueSoonSubsList.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-xl border border-amber-200 dark:border-amber-800/80 bg-amber-50/90 dark:bg-amber-950/30 text-xs">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-medium">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Renewal Reminder ({reminderDays}d window):</strong>{' '}
+              {dueSoonSubsList.map(s => `${s.service_name} (${s.currency} ${parseFloat(s.amount).toFixed(2)})`).join(', ')}{' '}
+              due within {reminderDays} {reminderDays === 1 ? 'day' : 'days'}.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'Due Soon' ? 'All' : 'Due Soon')}
+            className="font-bold text-amber-800 dark:text-amber-200 underline shrink-0"
+          >
+            {statusFilter === 'Due Soon' ? 'Show All' : 'Filter Due Soon'}
+          </button>
         </div>
       )}
 
@@ -1080,17 +1160,35 @@ export default function SubscriptionsIndex() {
                           {sub.currency} {parseFloat(sub.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                         <span className="text-xs ml-1 text-muted-foreground">{cycleLabel}</span>
+                        {sub.currency && sub.currency.toUpperCase() !== primaryCurrency.toUpperCase() && (
+                          <span className="block text-[11px] font-semibold text-primary tabular-nums mt-0.5">
+                            &asymp; {primaryCurrency}{' '}
+                            {convertAmount(sub.amount, sub.currency, primaryCurrency, rates).toLocaleString('en-US', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                        )}
                       </div>
                       <span
-                        className="text-xs font-semibold tabular-nums"
-                        style={{ color: isOverdue ? '#ef4444' : isDue3d ? '#b45309' : 'var(--muted-foreground)' }}
+                        className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full border ${
+                          isOverdue || isDueToday
+                            ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
+                            : daysLeft !== null && daysLeft <= 1
+                              ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300'
+                              : isDue3d
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                                : 'bg-muted/50 text-muted-foreground border-border'
+                        }`}
                       >
                         {daysLeft !== null
                           ? isOverdue
                             ? 'Overdue'
                             : isDueToday
                               ? 'Due today'
-                              : `${daysLeft}d left`
+                              : daysLeft === 1
+                                ? 'Due in 1d'
+                                : `${daysLeft}d left`
                           : '—'}
                       </span>
                     </div>
