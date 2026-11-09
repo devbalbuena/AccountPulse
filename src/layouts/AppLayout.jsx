@@ -3,7 +3,7 @@ import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-do
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
-import { evaluateAccountStatus } from '@/lib/durationUtils'
+import { evaluateAccountStatus, formatDuration } from '@/lib/durationUtils'
 import { useToast } from '@/context/ToastContext'
 import { useNow } from '@/context/TimeContext'
 import { checkGroupReadyTransitions, resetGroupReadyWatcher } from '@/lib/groupNotificationWatcher'
@@ -160,15 +160,30 @@ export default function AppLayout() {
     }
   }
 
-  // Synchronized 1-second tick driven by TimeContext to update badge and evaluate group-level toasts
+  // Synchronized 1-second tick driven by TimeContext to update badge, browser tab title, and evaluate group-level toasts
   useEffect(() => {
-    if (!accountsRef.current || accountsRef.current.length === 0) return
+    if (!accountsRef.current || accountsRef.current.length === 0) {
+      document.title = 'AccountPulse'
+      return
+    }
     let ready = 0
+    let minCooldown = Infinity
     accountsRef.current.forEach(a => {
-      const { isReady, hasTimers } = evaluateAccountStatus(a, now)
-      if (hasTimers !== false && isReady) ready++
+      const { isReady, hasTimers, minRemainingMs } = evaluateAccountStatus(a, now)
+      if (hasTimers !== false && isReady) {
+        ready++
+      } else if (hasTimers && minRemainingMs > 0 && minRemainingMs < minCooldown) {
+        minCooldown = minRemainingMs
+      }
     })
     setReadyCount(ready)
+    if (ready > 0) {
+      document.title = `(${ready} Ready) AccountPulse`
+    } else if (minCooldown < Infinity) {
+      document.title = `(Next: ${formatDuration(minCooldown)}) AccountPulse`
+    } else {
+      document.title = 'AccountPulse'
+    }
     checkGroupReadyTransitions(accountsRef.current, now, addToast)
   }, [now, addToast])
 
