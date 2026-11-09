@@ -14,6 +14,7 @@ import { getAccountTags } from '@/lib/accountTags'
 import { exportAccountsCSV } from '@/lib/dataBackup'
 import { recordRotationEvent } from '@/lib/rotationAnalytics'
 import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import {
   Search,
   Pencil,
@@ -118,6 +119,9 @@ export default function AccountsIndex() {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedAccountIds, setSelectedAccountIds] = useState([])
   const [batchTimeOpen, setBatchTimeOpen] = useState(false)
+  const activityDrawerRef = useRef(null)
+
+  useFocusTrap(activityDrawerRef, activityOpen, () => setActivityOpen(false))
 
   const now = useNow()
   const { addToast } = useToast()
@@ -1367,6 +1371,10 @@ export default function AccountsIndex() {
           onClick={() => setActivityOpen(false)}
         >
           <div
+            ref={activityDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Activity Feed"
             className="w-full max-w-sm bg-card border-l border-border h-full flex flex-col shadow-xl animate-in slide-in-from-right duration-200"
             onClick={e => e.stopPropagation()}
           >

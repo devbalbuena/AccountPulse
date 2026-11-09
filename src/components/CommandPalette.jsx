@@ -8,6 +8,7 @@ import { useNow } from '@/context/TimeContext'
 import { evaluateAccountStatus, formatDuration } from '@/lib/durationUtils'
 import { UnifiedPlatformIcon } from '@/lib/platformCategories'
 import { recordRotationEvent } from '@/lib/rotationAnalytics'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import {
   Search,
   Copy,
@@ -37,6 +38,9 @@ export default function CommandPalette({ isOpen, onClose, onDataMutated }) {
   const [subs, setSubs] = useState([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef(null)
+  const dialogRef = useRef(null)
+
+  useFocusTrap(dialogRef, isOpen, onClose)
 
   useEffect(() => {
     if (!isOpen || !user) return
@@ -233,6 +237,10 @@ export default function CommandPalette({ isOpen, onClose, onDataMutated }) {
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Quick Command Palette"
         className="w-full max-w-xl rounded-2xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col max-h-[75vh] animate-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >

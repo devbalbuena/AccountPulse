@@ -6,6 +6,7 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import SensitiveActionModal from '@/components/SensitiveActionModal'
 import { exportSubscriptionsCSV } from '@/lib/dataBackup'
 import { saveOfflineCache, loadOfflineCache } from '@/lib/pwaOfflineCache'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import {
   SUPPORTED_CURRENCIES,
   getSavedRates,
@@ -472,6 +473,9 @@ export default function SubscriptionsIndex() {
   // View Mode: Cards vs Table vs Calendar (Icon-only toggle)
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('ap-sub-view') || 'grid')
   const [subToArchive, setSubToArchive] = useState(null)
+  const historyDrawerRef = useRef(null)
+
+  useFocusTrap(historyDrawerRef, historyDrawerOpen, () => setHistoryDrawerOpen(false))
 
   // Multi-Currency Converter & Renewal Reminder Window
   const [rates, setRates] = useState(() => getSavedRates())
@@ -1358,6 +1362,10 @@ export default function SubscriptionsIndex() {
           onClick={() => setHistoryDrawerOpen(false)}
         >
           <div
+            ref={historyDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Billing History"
             className="w-full max-w-sm bg-card border-l border-border h-full flex flex-col shadow-xl animate-in slide-in-from-right duration-200"
             onClick={e => e.stopPropagation()}
           >

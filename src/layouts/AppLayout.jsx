@@ -8,6 +8,7 @@ import { useToast } from '@/context/ToastContext'
 import { useNow } from '@/context/TimeContext'
 import { checkGroupReadyTransitions, resetGroupReadyWatcher } from '@/lib/groupNotificationWatcher'
 import CommandPalette from '@/components/CommandPalette'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import {
   LayoutGrid, Users, CreditCard, BarChart2, ChevronLeft, ChevronRight, X, ChevronRight as ChevronRightIcon,
   Sun, Moon, Search, Bell, Settings, LogOut, AlertTriangle, Archive
@@ -69,6 +70,8 @@ export default function AppLayout() {
   const notifRef = useRef(null)
   const profileRef = useRef(null)
   const accountsRef = useRef([])
+
+  useFocusTrap(notifRef, notifOpen, () => setNotifOpen(false))
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
@@ -219,6 +222,13 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--background)' }}>
+      {/* Keyboard Skip to Main Content Link (a11y) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-3 focus:py-1.5 focus:rounded-lg focus:bg-primary focus:text-primary-foreground focus:text-xs focus:font-bold"
+      >
+        Skip to main content
+      </a>
 
       {/* ── Sidebar (Desktop Only) ── */}
       <aside
@@ -487,7 +497,7 @@ export default function AppLayout() {
         )}
 
         {/* Main content */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar">
+        <main id="main-content" tabIndex={-1} className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar focus:outline-none">
           <Outlet />
         </main>
       </div>
@@ -572,6 +582,9 @@ export default function AppLayout() {
       {/* Panel */}
       <div
         ref={notifRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Notifications"
         className="fixed top-0 right-0 h-full w-80 z-40 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out"
         style={{
           background: 'var(--card)',
