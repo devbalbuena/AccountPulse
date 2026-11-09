@@ -755,6 +755,15 @@ export default function SubscriptionsIndex() {
             )}
           </button>
 
+          {/* Archived Subscriptions Link (Icon-Only) */}
+          <Link
+            to="/subscriptions/archived"
+            title="Archived Subscriptions"
+            className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-xs"
+          >
+            <Archive className="w-3.5 h-3.5" />
+          </Link>
+
           {/* Add Subscription Button */}
           <button
             type="button"
